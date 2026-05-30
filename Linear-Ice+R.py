@@ -338,7 +338,7 @@ structures_total = [x for x in structures_total if x not in to_remove] #Remove o
 
 #Continuous variables to include in scaler
 cont = ['Years_of_education', 'Age_at_Test', 'Age_at_Test_1', 'Days_between_Tests', 'Onset_Age', 'Diagnosis_Age', 'Age',
-        'SNR_y','CNR','EFC','CJV', 'SNR_x']
+        'SNR_y','CNR','EFC','CJV', 'SNR_x','HY_Scores']
 var = structures_total+cont
 
 #Database Scaling 
@@ -1130,7 +1130,7 @@ ax[1].set_yticks([])
 plt.tight_layout()
 
 
-#%%----------------------Left+ Right Merge (PD + Ctrl) MoCA  Model------------------ <CURRENT
+#%%----------------------Left+ Right Merge (PD + Ctrl)  Model------------------ <CURRENT
 merge_results = []
 merge_models_plot_db = pd.DataFrame()
 merge_models_plot_db['Subject_ID']= merge_db_scaled['Subject_ID']
@@ -1138,7 +1138,7 @@ merge_models_plot_db['Age_at_Test']= merge_db_scaled['Age_at_Test']
 
 for i in structures_LR:
     
-    formula = "MoCA_Scores ~ " + i + " + Group  + Age + Sex + Years_of_education + Group*Age"
+    formula = "MoCA_Scores ~ " + i + " + Group  + Age + Sex + HY_Scores + Years_of_education + Group*Age"
     print(formula)
     
     lm = smf.mixedlm(formula, merge_db_scaled, groups=merge_db_scaled["Subject_ID"], re_formula='~Age')
@@ -1165,9 +1165,9 @@ for i in structures_LR:
         # 'MoCA_Scores': params['MoCA_Scores'],
         # 'MoCA_Scores z': zvals['MoCA_Scores'],
         # 'MoCA_Scores pvalue': pvals['MoCA_Scores'],
-        # 'HY_Scores': params['HY_Scores'],
-        # 'HY_Scores z': zvals['HY_Scores'],
-        # 'HY_Scores pvalue': pvals['HY_Scores'],
+        'HY_Scores': params['HY_Scores'],
+        'HY_Scores z': zvals['HY_Scores'],
+        'HY_Scores pvalue': pvals['HY_Scores'],
         'Age_at_Test': params['Age'],
         'Age_at_Test z': zvals['Age'],
         'Age_at_Test pvalue': pvals['Age'],
@@ -1196,7 +1196,7 @@ merge_model_results_df = merge_model_results_df.dropna()
 #Pvalue FDR Correction 
 
 pvals_index= ['Sex[T.M] pvalue','Volume pvalue','Age_at_Test pvalue', 'Years_of_education pvalue',
-              'Group pvalue', 'Group*Age pvalue' ]
+              'Group pvalue', 'Group*Age pvalue', 'HY_Scores pvalue' ]
 
 
 for i in pvals_index:
@@ -1207,135 +1207,7 @@ for i in pvals_index:
     merge_model_results_df[new_index]= tmp_pvals_fdr
     
     
-#%%----------------------Preliminary  Plot-------------------------------------
-
-ticks = list(merge_model_results_df['modelo'])
-ticks = [x.replace('_volume_PR','') for x in ticks]
-
-fig, ax = plt.subplots(3,2)
-fig.set_figheight(10)
-fig.set_figwidth(15)
-plt.suptitle('Variable P-values - PD Models by structure L+R (x=Age at Test, Scaled)', fontsize=16)
-ax[0,0].set_title("Sex [M] FDR Corrected")
-ax[0,0].scatter(merge_model_results_df['modelo'], merge_model_results_df['Sex[T.M] pvalue FDR'], mouseover=True)
-#ax[0,0].scatter(ctrl_model_results_df['modelo'], ctrl_model_results_df['Sex[T.M] pvalue FDR'], mouseover=True)
-ax[0,0].axhline(0.05, color ='red')
-ax[0,0].set_xticks([])
-
-ax[1,0].set_title("Volume FDR Corrected")
-ax[1,0].scatter(merge_model_results_df['modelo'], merge_model_results_df['Volume pvalue FDR'], mouseover=True)
-ax[1,0].axhline(0.05, color ='red')
-ax[1,0].set_xticks([])
-
-ax[2,0].set_title("Age At Test FDR Corrected")
-ax[2,0].scatter(merge_model_results_df['modelo'], merge_model_results_df['Age_at_Test pvalue FDR'], mouseover=True)
-ax[2,0].axhline(0.05, color ='red')
-ax[2,0].set_xticks(range(len(ticks)),labels=ticks, rotation=90)
-
-ax[0,1].set_title("Years of Education FDR Corrected")
-ax[0,1].scatter(merge_model_results_df['modelo'], merge_model_results_df['Years_of_education pvalue FDR'], mouseover=True)
-ax[0,1].axhline(0.05, color ='red')
-ax[0,1].set_xticks([])
-
-# ax[1,1].set_title("Onset Age FDR Corrected")
-# ax[1,1].scatter(merge_model_results_df['modelo'], merge_model_results_df['Onset_Age pvalue FDR'], mouseover=True)
-# ax[1,1].axhline(0.05, color ='red')
-# ax[1,1].set_xticks([])
-
-# ax[1,1].set_title("Early/Late [T.Late] FDR Corrected")
-# ax[1,1].scatter(merge_model_results_df['modelo'], merge_model_results_df['EoL pvalue FDR'], mouseover=True)
-# ax[1,1].axhline(0.05, color ='red')
-# ax[1,1].set_xticks([])
-
-# ax[1,1].set_title("HY Scores FDR Corrected")
-# ax[1,1].scatter(merge_model_results_df['modelo'], merge_model_results_df['HY_Scores pvalue FDR'], mouseover=True)
-# ax[1,1].axhline(0.05, color ='red')
-# ax[1,1].set_xticks([])
-
-
-ax[2,1].set_title("Group*Age FDR Corrected")
-ax[2,1].scatter(merge_model_results_df['modelo'], merge_model_results_df['Group*Age pvalue FDR'], mouseover=True)
-ax[2,1].axhline(0.05, color ='red')
-ax[2,1].set_xticks(range(len(ticks)),labels=ticks, rotation=90)
-
-plt.tight_layout()
-
-#%%----------------------Left+ Right Merge (PD + Ctrl) HY Model------------------ <CURRENT
-merge_results_hy = []
-merge_models_plot_db_hy = pd.DataFrame()
-merge_models_plot_db_hy['Subject_ID']= merge_db_scaled['Subject_ID']
-merge_models_plot_db_hy['Age_at_Test']= merge_db_scaled['Age_at_Test']
-
-for i in structures_LR:
-    
-    formula = "HY_Scores ~ " + i + " + Group  + Age + Sex + Years_of_education + Group*Age"
-    print(formula)
-    
-    lm = smf.mixedlm(formula, merge_db_scaled, groups=merge_db_scaled["Subject_ID"], re_formula='~Age')
-    merge_lm = lm.fit()
-    
-    #print('Longitudinal + Single Acq'+i+' Model')
-   
-    pvals = merge_lm.pvalues 
-    params = merge_lm.params
-    zvals = merge_lm.tvalues
-
-    merge_results_hy.append({
-        'modelo': i,
-        'formula': merge_lm.model.formula,
-        'Intercept': params['Intercept'],
-        'Intercept z': zvals['Intercept'],
-        'Intercept pvalue': pvals['Intercept'],
-        'Sex[T.M]':params['Sex[T.M]'],
-        'Sex[T.M] z':zvals['Sex[T.M]'],
-        'Sex[T.M] pvalue':pvals['Sex[T.M]'],
-        'Volume':params[i],
-        'Volume z':zvals[i],
-        'Volume pvalue':pvals[i],
-        # 'MoCA_Scores': params['MoCA_Scores'],
-        # 'MoCA_Scores z': zvals['MoCA_Scores'],
-        # 'MoCA_Scores pvalue': pvals['MoCA_Scores'],
-        # 'HY_Scores': params['HY_Scores'],
-        # 'HY_Scores z': zvals['HY_Scores'],
-        # 'HY_Scores pvalue': pvals['HY_Scores'],
-        'Age_at_Test': params['Age'],
-        'Age_at_Test z': zvals['Age'],
-        'Age_at_Test pvalue': pvals['Age'],
-        'Years_of_education': params['Years_of_education'],
-        'Years_of_education z': zvals['Years_of_education'],
-        'Years_of_education pvalue': pvals['Years_of_education'],
-        'Group':params['Group[T.PD]'], 
-        'Group z':zvals['Group[T.PD]'], 
-        'Group pvalue':pvals['Group[T.PD]'],
-        'Group*Age':params['Group[T.PD]:Age'], 
-        'Group*Age z':zvals['Group[T.PD]:Age'], 
-        'Group*Age pvalue':pvals['Group[T.PD]:Age'] 
-    })
-    
-    if merge_lm.converged:
-        merge_models_plot_db_hy[i]=merge_lm.fittedvalues
-        
-    
-    print(merge_lm.summary())
-    # plt.figure()
-    # plt.scatter(range(len(merge_lm.fittedvalues)), merge_lm.resid)
-        
-merge_model_results_df = pd.DataFrame(merge_results_hy)
-merge_model_results_df = merge_model_results_df.dropna()
-
-#Pvalue FDR Correction 
-
-pvals_index= ['Sex[T.M] pvalue','Volume pvalue','Age_at_Test pvalue', 'Years_of_education pvalue',
-              'Group pvalue', 'Group*Age pvalue' ]
-
-
-for i in pvals_index:
-    print(i)
-    tmp_pvals = merge_model_results_df[i]
-    tmp_pvals_fdr = FDR(tmp_pvals)
-    new_index = i + ' FDR'
-    merge_model_results_df[new_index]= tmp_pvals_fdr
-    
+    #GITHUB TEST INPUT
     
 #%%----------------------Preliminary  Plot-------------------------------------
 
