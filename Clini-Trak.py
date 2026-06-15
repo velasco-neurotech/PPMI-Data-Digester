@@ -92,6 +92,10 @@ Función linmod_df_filler
     
 Ahora genera el segundo archivo LINMOD_HY_ con los puntajes de Test Horen-Yahr
 
+///////////////////// VER 2.3 Update /////////////////////////////
+12/6/26
+
+Se modifican funciones para integrar columna de estatus ON OFF Hoehn Yahr en los archivos LINMOD 
 
 """
 
@@ -278,22 +282,40 @@ if stype == 'Parkinsons':     #If subject type is Parkinsons
             
         #-----Extract Hoehn-Yahr Scores from MDS-UPDRS_Part_III
         if i in updrsfile['PATNO']:
-            hyscores = list(updrsfile[(updrsfile['PATNO']==i)]['NHY'])
-            hydates = list(updrsfile[(updrsfile['PATNO']==i)]['INFODT'])
-            hystatus = list(updrsfile[(updrsfile['PATNO']==i)]['PDSTATE'])
+            hy= updrsfile[(updrsfile['PATNO']==i)][['NHY','INFODT','PDSTATE']]
+            #There are NaN values in HY status corresponding to before treatment was started (Col PDTRTMNT)
+            #so they correspond to a 'OFF State', NaN Values are replaced to 'NoTrtOFF' to indicate this
+            hy['PDSTATE'] = hy['PDSTATE'].fillna('NoTrtOFF')
+            #Remove rows with NaN values in score col
+            hy.dropna(inplace=True)
+            #Sort by date 
+            hy['INFODT']=pd.to_datetime(hy['INFODT'], format='%m/%Y')
+            hy.sort_values(by='INFODT', inplace=True)
+            hy.reset_index(inplace=True, drop = True)
+            #Create lists of values 
+            hyscores = list(hy['NHY'])
+            hydates = list(hy['INFODT'].dt.strftime('%m/%Y'))
+            hystatus = list(hy['PDSTATE'])
             
         else:
             print('Patient '+str(i)+' not in MDS-UPDRS file')
             hyscores='NO DATA'
             hydates='NO DATA'
+            hystatus='NO DATA'
             updrs_exclusions.append(i)
             with open (sname+' - Clini-Trak Log File.txt', 'a') as savefile:
                 savefile.write('Patient '+str(i)+' not in MDS-UPDRS file\n')
         
         #------Extract MoCA scores from Montreal_Cognitive_Assessment_MoCA File
         if i in mocafile['PATNO']:
-            mocascore = list(mocafile[(mocafile['PATNO']==i)]['MCATOT'])
-            mocadates = list(mocafile[(mocafile['PATNO']==i)]['INFODT'])
+            moca = mocafile[(mocafile['PATNO']==i)][['MCATOT','INFODT']]
+            #Sort by date 
+            moca['INFODT']=pd.to_datetime(moca['INFODT'], format='%m/%Y')
+            moca.sort_values(by='INFODT', inplace=True)
+            moca.reset_index(inplace=True, drop = True)
+            #Create lists of values 
+            mocascore = list(moca['MCATOT'])
+            mocadates = list(moca['INFODT'].dt.strftime('%m/%Y'))
         else:
             print('Patient '+str(i)+' not in MoCA file')
             mocascore='NO DATA'
@@ -415,21 +437,41 @@ else:
             
         #-----Extract Hoehn-Yahr Scores from MDS-UPDRS_Part_III
         if i in list(updrsfile['PATNO']):
-            hyscores = list(updrsfile[(updrsfile['PATNO']==i)]['NHY'])
-            hydates = list(updrsfile[(updrsfile['PATNO']==i)]['INFODT'])
+            hy= updrsfile[(updrsfile['PATNO']==i)][['NHY','INFODT','PDSTATE']]
+            #There are NaN values in HY status corresponding to before treatment was started (Col PDTRTMNT)
+            #so they correspond to a 'OFF State', NaN Values are replaced to 'NoTrtOFF' to indicate this
+            hy['PDSTATE'] = hy['PDSTATE'].fillna('NoTrtOFF')
+            #Remove rows with NaN values in score col
+            hy.dropna(inplace=True)
+            #Sort by date 
+            hy['INFODT']=pd.to_datetime(hy['INFODT'], format='%m/%Y')
+            hy.sort_values(by='INFODT', inplace=True)
+            hy.reset_index(inplace=True, drop = True)
+            #Create lists of values 
+            hyscores = list(hy['NHY'])
+            hydates = list(hy['INFODT'].dt.strftime('%m/%Y'))
+            hystatus = list(hy['PDSTATE'])
             
         else:
             print('Patient '+str(i)+' not in MDS-UPDRS file')
             hyscores='NO DATA'
             hydates='NO DATA'
+            hystats='NO DATA'
             updrs_exclusions.append(i)
             with open (sname+' - Clini-Trak Log File.txt', 'a') as savefile:
                 savefile.write('Patient '+str(i)+' not in MDS-UPDRS file\n')
         
         #------Extract MoCA scores from Montreal_Cognitive_Assessment_MoCA File
         if i in list(mocafile['PATNO']):
-            mocascore = list(mocafile[(mocafile['PATNO']==i)]['MCATOT'])
-            mocadates = list(mocafile[(mocafile['PATNO']==i)]['INFODT'])
+            moca = mocafile[(mocafile['PATNO']==i)][['MCATOT','INFODT']]
+            #Sort by date 
+            moca['INFODT']=pd.to_datetime(moca['INFODT'], format='%m/%Y')
+            moca.sort_values(by='INFODT', inplace=True)
+            moca.reset_index(inplace=True, drop = True)
+            moca.dropna(inplace=True)
+            #Create lists of values 
+            mocascore = list(moca['MCATOT'])
+            mocadates = list(moca['INFODT'].dt.strftime('%m/%Y'))
         else:
             print('Patient '+str(i)+' not in MoCA file')
             mocascore='NO DATA'
@@ -449,7 +491,8 @@ else:
                       'HY_Scores':hyscores, 
                       'HY_Dates':hydates, 
                       'MoCA_Scores':mocascore, 
-                      'MoCA_Dates':mocadates}
+                      'MoCA_Dates':mocadates,
+                      'HY_Status':hystatus}
 
         dict_list.append(pdd_temp_dict)
         
@@ -486,7 +529,7 @@ else:
 
 #%%---------DEFINE FUNCTIONS---------------------------------------------------
 
-def sorter(dates, scores):
+def sorter(dates, scores, testname, hyStatus=0):
     """
     Sorts MoCA/HY scores by date
 
@@ -496,6 +539,10 @@ def sorter(dates, scores):
         Initial subject test Dates.
     scores : Array
         Initial subject Scores.
+    testname : String
+        'HY' or 'MoCA'
+    hyStatus : Array
+        Initial subject treatment status.
 
     Returns
     -------
@@ -510,31 +557,62 @@ def sorter(dates, scores):
         Array with ordered Scores.
 
     """
-    tmp = {'Dates':dates, 'Scores':scores}
-    tmp_dataframe = pd.DataFrame.from_dict(tmp)
-    tmp_dataframe.dropna(inplace=True)
-    tmp_dataframe = tmp_dataframe[tmp_dataframe['Scores'] != 101] #Drops 'Unable to evaluate' rows, codemark 101 (see: Code_List_Harmoonized, ITM_NAME: NHY, CODE: 101)
     
-    if len(tmp_dataframe)== 0:
-        skip = True
-        datesRes=[]
-        scoresRes=[]
-        return skip, datesRes, scoresRes 
+    if testname == 'MoCA':
+        tmp = {'Dates':dates, 'Scores':scores}
+        tmp_dataframe = pd.DataFrame.from_dict(tmp)
+        tmp_dataframe.dropna(inplace=True)
+        tmp_dataframe = tmp_dataframe[tmp_dataframe['Scores'] != 101] #Drops 'Unable to evaluate' rows, codemark 101 (see: Code_List_Harmoonized, ITM_NAME: NHY, CODE: 101)
+        
+        if len(tmp_dataframe)== 0:
+            skip = True
+            datesRes=[]
+            scoresRes=[]
+            return skip, datesRes, scoresRes 
+        
+        else:
+            
+            tmp_dataframe['Dates'] = pd.to_datetime(tmp_dataframe['Dates'], format='%m/%Y')
+            tmp_dataframe.sort_values(by='Dates', inplace=True)
+            tmp_dataframe.reset_index(inplace=True, drop=True)
+            #tmp_dataframe.drop_duplicates(subset = 'Dates', inplace =True) #Drops Duplicated evals (done on same day)
+            tmp_dataframe['Dates']= tmp_dataframe['Dates'].dt.strftime('%m/%Y')
+            datesRes = np.array(tmp_dataframe['Dates'])
+            scoresRes = np.array(tmp_dataframe['Scores'])
+            skip = False 
+            
+            return skip, datesRes, scoresRes
+    
+    elif testname == 'HY':
+        tmp = {'Dates':dates, 'Scores':scores, 'Status': hyStatus}
+        tmp_dataframe = pd.DataFrame.from_dict(tmp)
+        tmp_dataframe.dropna(inplace=True)
+        tmp_dataframe = tmp_dataframe[tmp_dataframe['Scores'] != 101] #Drops 'Unable to evaluate' rows, codemark 101 (see: Code_List_Harmoonized, ITM_NAME: NHY, CODE: 101)
+        
+        if len(tmp_dataframe)== 0:
+            skip = True
+            datesRes=[]
+            scoresRes=[]
+            return skip, datesRes, scoresRes 
+        
+        else:
+            
+            tmp_dataframe['Dates'] = pd.to_datetime(tmp_dataframe['Dates'], format='%m/%Y')
+            tmp_dataframe.sort_values(by='Dates', inplace=True)
+            tmp_dataframe.reset_index(inplace=True, drop=True)
+            #tmp_dataframe.drop_duplicates(subset = 'Dates', inplace =True) #Drops Duplicated evals (done on same day)
+            tmp_dataframe['Dates']= tmp_dataframe['Dates'].dt.strftime('%m/%Y')
+            datesRes = np.array(tmp_dataframe['Dates'])
+            scoresRes = np.array(tmp_dataframe['Scores'])
+            statusRes = np.array(tmp_dataframe['Status'])
+            skip = False 
+            
+            return skip, datesRes, scoresRes, statusRes
     
     else:
+        print('ERROR: Wrong Test Name, Chose HY or MoCA')
         
-        tmp_dataframe['Dates'] = pd.to_datetime(tmp_dataframe['Dates'], format='%m/%Y')
-        tmp_dataframe.sort_values(by='Dates', inplace=True)
-        tmp_dataframe.reset_index(inplace=True, drop=True)
-        tmp_dataframe.drop_duplicates(subset = 'Dates', inplace =True) #Drops Duplicated evals (done on same day)
-        tmp_dataframe['Dates']= tmp_dataframe['Dates'].dt.strftime('%m/%Y')
-        datesRes = np.array(tmp_dataframe['Dates'])
-        scoresRes = np.array(tmp_dataframe['Scores'])
-        skip = False 
-        
-        return skip, datesRes, scoresRes
-        
-def linmod_df_filler(stype, c, dates, scores, sub_dict, testname):
+def linmod_df_filler(stype, c, dates, scores, sub_dict, testname, hystatus=0):
     '''
     Creates Linear Model file dataframe, can be used with MoCA scores or HY scores
 
@@ -552,6 +630,8 @@ def linmod_df_filler(stype, c, dates, scores, sub_dict, testname):
         Subject dictionary containing all subject data.
     testname : Str
         Name of test to evaluate, only works if contains 'MoCA' or 'HY'.
+    hystatus : Array
+        Array of HY treatment status.
 
     Returns
     -------
@@ -560,7 +640,7 @@ def linmod_df_filler(stype, c, dates, scores, sub_dict, testname):
         df : Dataframe
             Contains dataframe of subject data with repeated rows according to test dates/scores.
         c2 : Int
-            Counter = 1 to indicate first itrartion was completed
+            Counter = 1 to indicate first iterartion was completed
     
     if c == 1:
         tmp_df : Dataframe
@@ -592,91 +672,183 @@ def linmod_df_filler(stype, c, dates, scores, sub_dict, testname):
     model=LinearRegression().fit(ageAtTest_lr,scores)
     slope=[(model.coef_[0])]*rownum
     
+    
     #Dataframe Fill
     if stype == 'Parkinsons':
-        onsetage=[i.get('Onset_Age')]*rownum
-        diagnosisage=[i.get('Diagnosis_Age')]*rownum
-        if c ==0:
-            df=pd.DataFrame({
-            'Subject_ID': subid,
-            'Test_Number':tstnum,
-            'Sex':sex,
-            'Birthdate':birthdate,
-            'Group':group,
-            'Modality':modality,
-            'Years_of_education':yoe,
-            testname+'_Scores': scores,
-            testname+'_Dates':dates,
-            'Age_at_Test': ageAtTest,
-            'Days_between_Tests':np.abs(daysBetween),
-            'Slope': slope,
-            'Onset_Age':onsetage,
-            'Diagnosis_Age':diagnosisage
-            })
-            
-            c2=1
-            return df, c2
-        else:
-            tmp_df=pd.DataFrame({
-            'Subject_ID': subid,
-            'Test_Number':tstnum,
-            'Sex':sex,
-            'Birthdate':birthdate,
-            'Group':group,
-            'Modality':modality,
-            'Years_of_education':yoe,
-            testname+'_Scores': scores,
-            testname+'_Dates':dates,
-            'Age_at_Test': ageAtTest,
-            'Days_between_Tests':np.abs(daysBetween),
-            'Slope': slope,
-            'Onset_Age':onsetage,
-            'Diagnosis_Age':diagnosisage
-            })
-            
-            return tmp_df
+        
+        if testname == 'MoCA':
+            onsetage=[i.get('Onset_Age')]*rownum
+            diagnosisage=[i.get('Diagnosis_Age')]*rownum
+            if c ==0:
+                df=pd.DataFrame({
+                'Subject_ID': subid,
+                'Test_Number':tstnum,
+                'Sex':sex,
+                'Birthdate':birthdate,
+                'Group':group,
+                'Modality':modality,
+                'Years_of_education':yoe,
+                testname+'_Scores': scores,
+                testname+'_Dates':dates,
+                'Age_at_Test': ageAtTest,
+                'Days_between_Tests':np.abs(daysBetween),
+                'Slope': slope,
+                'Onset_Age':onsetage,
+                'Diagnosis_Age':diagnosisage
+                })
+                
+                c2=1
+                return df, c2
+            else:
+                tmp_df=pd.DataFrame({
+                'Subject_ID': subid,
+                'Test_Number':tstnum,
+                'Sex':sex,
+                'Birthdate':birthdate,
+                'Group':group,
+                'Modality':modality,
+                'Years_of_education':yoe,
+                testname+'_Scores': scores,
+                testname+'_Dates':dates,
+                'Age_at_Test': ageAtTest,
+                'Days_between_Tests':np.abs(daysBetween),
+                'Slope': slope,
+                'Onset_Age':onsetage,
+                'Diagnosis_Age':diagnosisage
+                })
+                
+                return tmp_df
+        
+        elif testname == 'HY':
+            onsetage=[i.get('Onset_Age')]*rownum
+            diagnosisage=[i.get('Diagnosis_Age')]*rownum
+            if c ==0:
+                df=pd.DataFrame({
+                'Subject_ID': subid,
+                'Test_Number':tstnum,
+                'Sex':sex,
+                'Birthdate':birthdate,
+                'Group':group,
+                'Modality':modality,
+                'Years_of_education':yoe,
+                testname+'_Scores': scores,
+                testname+'_Dates':dates,
+                'Age_at_Test': ageAtTest,
+                'Days_between_Tests':np.abs(daysBetween),
+                'Slope': slope,
+                'Onset_Age':onsetage,
+                'Diagnosis_Age':diagnosisage,
+                'HY_Status':hystatus
+                })
+                
+                c2=1
+                return df, c2
+            else:
+                tmp_df=pd.DataFrame({
+                'Subject_ID': subid,
+                'Test_Number':tstnum,
+                'Sex':sex,
+                'Birthdate':birthdate,
+                'Group':group,
+                'Modality':modality,
+                'Years_of_education':yoe,
+                testname+'_Scores': scores,
+                testname+'_Dates':dates,
+                'Age_at_Test': ageAtTest,
+                'Days_between_Tests':np.abs(daysBetween),
+                'Slope': slope,
+                'Onset_Age':onsetage,
+                'Diagnosis_Age':diagnosisage,
+                'HY_Status':hystatus
+                })
+                
+                return tmp_df
         
     
     elif (stype == 'Prodromal') or (stype == 'Control'):
-        if c ==0:
-            df=pd.DataFrame({
-            'Subject_ID': subid,
-            'Test_Number':tstnum,
-            'Sex':sex,
-            'Birthdate':birthdate,
-            'Group':group,
-            'Modality':modality,
-            'Years_of_education':yoe,
-            testname+'_Scores': scores,
-            testname+'_Dates':dates,
-            'Age_at_Test': ageAtTest,
-            'Days_between_Tests':np.abs(daysBetween),
-            'Slope': slope,
-            'Onset_Age':np.zeros((rownum)),
-            'Diagnosis_Age':np.zeros((rownum))
-            })
-            
-            c2=1
-            return df, c2
-        else:
-            tmp_df=pd.DataFrame({
-            'Subject_ID': subid,
-            'Test_Number':tstnum,
-            'Sex':sex,
-            'Birthdate':birthdate,
-            'Group':group,
-            'Modality':modality,
-            'Years_of_education':yoe,
-            testname+'_Scores': scores,
-            testname+'_Dates':dates,
-            'Age_at_Test': ageAtTest,
-            'Days_between_Tests':np.abs(daysBetween),
-            'Slope': slope,
-            'Onset_Age':np.zeros((rownum)),
-            'Diagnosis_Age':np.zeros((rownum))
-            })
-            
-            return tmp_df
+        if testname == 'MoCA':
+            if c ==0:
+                df=pd.DataFrame({
+                'Subject_ID': subid,
+                'Test_Number':tstnum,
+                'Sex':sex,
+                'Birthdate':birthdate,
+                'Group':group,
+                'Modality':modality,
+                'Years_of_education':yoe,
+                testname+'_Scores': scores,
+                testname+'_Dates':dates,
+                'Age_at_Test': ageAtTest,
+                'Days_between_Tests':np.abs(daysBetween),
+                'Slope': slope,
+                'Onset_Age':np.zeros((rownum)),
+                'Diagnosis_Age':np.zeros((rownum))
+                })
+                
+                c2=1
+                return df, c2
+            else:
+                tmp_df=pd.DataFrame({
+                'Subject_ID': subid,
+                'Test_Number':tstnum,
+                'Sex':sex,
+                'Birthdate':birthdate,
+                'Group':group,
+                'Modality':modality,
+                'Years_of_education':yoe,
+                testname+'_Scores': scores,
+                testname+'_Dates':dates,
+                'Age_at_Test': ageAtTest,
+                'Days_between_Tests':np.abs(daysBetween),
+                'Slope': slope,
+                'Onset_Age':np.zeros((rownum)),
+                'Diagnosis_Age':np.zeros((rownum))
+                })
+                
+                return tmp_df
+        
+        elif testname == 'HY':
+            if c ==0:
+                df=pd.DataFrame({
+                'Subject_ID': subid,
+                'Test_Number':tstnum,
+                'Sex':sex,
+                'Birthdate':birthdate,
+                'Group':group,
+                'Modality':modality,
+                'Years_of_education':yoe,
+                testname+'_Scores': scores,
+                testname+'_Dates':dates,
+                'Age_at_Test': ageAtTest,
+                'Days_between_Tests':np.abs(daysBetween),
+                'Slope': slope,
+                'Onset_Age':np.zeros((rownum)),
+                'Diagnosis_Age':np.zeros((rownum)),
+                'HY_Status':hystatus
+                })
+                
+                c2=1
+                return df, c2
+            else:
+                tmp_df=pd.DataFrame({
+                'Subject_ID': subid,
+                'Test_Number':tstnum,
+                'Sex':sex,
+                'Birthdate':birthdate,
+                'Group':group,
+                'Modality':modality,
+                'Years_of_education':yoe,
+                testname+'_Scores': scores,
+                testname+'_Dates':dates,
+                'Age_at_Test': ageAtTest,
+                'Days_between_Tests':np.abs(daysBetween),
+                'Slope': slope,
+                'Onset_Age':np.zeros((rownum)),
+                'Diagnosis_Age':np.zeros((rownum)),
+                'HY_Status':hystatus
+                })
+                
+                return tmp_df
 
     
 #%%---------CLINI-TRAK LINEAR MODEL MOCA FILES GENERATION----------------------   
@@ -686,7 +858,7 @@ c=0
 for i in dict_list: 
     if i.get('Subject_ID') in alldata_subjects:
         #-----Sort dates/scores 
-        skip, mocaDates, mocaScores= sorter(np.array(i.get('MoCA_Dates')),np.array(i.get('MoCA_Scores')))
+        skip, mocaDates, mocaScores= sorter(np.array(i.get('MoCA_Dates')),np.array(i.get('MoCA_Scores')),'MoCA')
         #-----Obtain dataframe
         if not skip:
             print(i.get('Subject_ID'))
@@ -706,14 +878,14 @@ c=0
 for i in dict_list: 
     if i.get('Subject_ID') in alldata_subjects:
         #-----Sort dates/scores 
-        skip, hyDates, hyScores= sorter(np.array(i.get('HY_Dates')),np.array(i.get('HY_Scores')))
+        skip, hyDates, hyScores, hyStatus= sorter(np.array(i.get('HY_Dates')),np.array(i.get('HY_Scores')),'HY',np.array(i.get('HY_Status')))
         #-----Obtain dataframe
         if not skip:
             print(i.get('Subject_ID'))
             if c==0:
-                df,c = linmod_df_filler(stype,c,hyDates,hyScores,i,'HY')
+                df,c = linmod_df_filler(stype,c,hyDates,hyScores,i,'HY',hyStatus)
             else:
-                tmp_df = linmod_df_filler(stype,c,hyDates,hyScores,i,'HY')
+                tmp_df = linmod_df_filler(stype,c,hyDates,hyScores,i,'HY',hyStatus)
                 df = pd.concat([df, tmp_df])
             
 df.to_csv('LINMOD_HY_'+stype+'_'+sname+'.csv', index=False)
