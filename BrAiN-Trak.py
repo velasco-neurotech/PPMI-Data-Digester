@@ -2,10 +2,26 @@
 """
 Created on Tue Jan 6 15:05:02 2026
 
-BrAiN-Trak
-
-
+ /$$$$$$$             /$$$$$$  /$$ /$$   /$$      /$$$$$$$$                 /$$      
+| $$__  $$           /$$__  $$|__/| $$$ | $$     |__  $$__/                | $$      
+| $$  \ $$  /$$$$$$ | $$  \ $$ /$$| $$$$| $$        | $$  /$$$$$$  /$$$$$$ | $$   /$$
+| $$$$$$$  /$$__  $$| $$$$$$$$| $$| $$ $$ $$ /$$$$$$| $$ /$$__  $$|____  $$| $$  /$$/
+| $$__  $$| $$  \__/| $$__  $$| $$| $$  $$$$|______/| $$| $$  \__/ /$$$$$$$| $$$$$$/ 
+| $$  \ $$| $$      | $$  | $$| $$| $$\  $$$        | $$| $$      /$$__  $$| $$_  $$ 
+| $$$$$$$/| $$      | $$  | $$| $$| $$ \  $$        | $$| $$     |  $$$$$$$| $$ \  $$
+|_______/ |__/      |__/  |__/|__/|__/  \__/        |__/|__/      \_______/|__/  \__/
+                                                                                     
+                                                                                     
 @author: Miguel Velasco Orozco 
+
+Clinical and radiological data concatenator and homologator
+Finds closest date between MoCA / HY evaluation and MRI imaging 
+
+Creates Dataframe with only MRI Data and LINMOD file with clinical data 
+
+//////////////UPDATE v1.1/////////////////////
+
+- Data management to include HY Status ON-OFF on cols 
 
 """
 
