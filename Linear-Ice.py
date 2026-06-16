@@ -37,6 +37,11 @@ ICE: Inferences from Clinical Evidence
         Se implementa que también se tomen en cuenta los datos de los sujetos con una sola evaluación y no 
         únicamente los longitudinales.
 
+
+/// Ver 3 Update :
+        
+        Added Scaler to dataframes, included single subjects for models 
+
 """
 #VER = '2.0'
 
@@ -871,6 +876,7 @@ from matplotlib.lines import Line2D
 from statsmodels import graphics
 from scipy import stats as sp
 from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import StandardScaler
 
 os.chdir('C:/Users/Admin/Desktop/Maestría en Neurobiología/Proyecto') #Carpeta de trabajo [modificable]
 
@@ -898,11 +904,11 @@ title = "Linear-ICE "+VER+" - "
 temp_path = eg.fileopenbox(message, title, default=r"C:/Users/Admin/Desktop/Maestría en Neurobiología/Proyecto") #Save Path
 ctrl_path = temp_path.replace(os.path.sep ,"/")
 
-#Session Open File
-message = 'Please Select Prodromals LINMOD MoCA File'
-title = "Linear-ICE "+VER+" - "
-temp_path = eg.fileopenbox(message, title, default=r"C:/Users/Admin/Desktop/Maestría en Neurobiología/Proyecto") #Save Path
-prod_path = temp_path.replace(os.path.sep ,"/")
+# #Session Open File
+# message = 'Please Select Prodromals LINMOD MoCA File'
+# title = "Linear-ICE "+VER+" - "
+# temp_path = eg.fileopenbox(message, title, default=r"C:/Users/Admin/Desktop/Maestría en Neurobiología/Proyecto") #Save Path
+# prod_path = temp_path.replace(os.path.sep ,"/")
 
 #Session Open File
 message = 'Please Select Parkinsons LINMOD HY File'
@@ -916,11 +922,11 @@ title = "Linear-ICE "+VER+" - "
 temp_path = eg.fileopenbox(message, title, default=r"C:/Users/Admin/Desktop/Maestría en Neurobiología/Proyecto") #Save Path
 ctrl_hy_path = temp_path.replace(os.path.sep ,"/")
 
-#Session Open File
-message = 'Please Select Prodromals LINMOD HY File'
-title = "Linear-ICE "+VER+" - "
-temp_path = eg.fileopenbox(message, title, default=r"C:/Users/Admin/Desktop/Maestría en Neurobiología/Proyecto") #Save Path
-prod_hy_path = temp_path.replace(os.path.sep ,"/")
+# #Session Open File
+# message = 'Please Select Prodromals LINMOD HY File'
+# title = "Linear-ICE "+VER+" - "
+# temp_path = eg.fileopenbox(message, title, default=r"C:/Users/Admin/Desktop/Maestría en Neurobiología/Proyecto") #Save Path
+# prod_hy_path = temp_path.replace(os.path.sep ,"/")
 
 #-------Change working directory to save path 
 os.chdir(sv_path)
@@ -929,20 +935,20 @@ os.chdir(sv_path)
 
 pdd_csvfile = pd.read_csv(pdd_path)  
 ctrl_csvfile = pd.read_csv(ctrl_path)  
-prod_csvfile = pd.read_csv(prod_path)  
+#prod_csvfile = pd.read_csv(prod_path)  
 
 pdd_hy_csvfile = pd.read_csv(pdd_hy_path)  
 ctrl_hy_csvfile = pd.read_csv(ctrl_hy_path) 
-prod_hy_csvfile = pd.read_csv(prod_hy_path)
+#prod_hy_csvfile = pd.read_csv(prod_hy_path)
 
 pdd_hy_corrected = pd.read_csv(pdd_hy_path)  
 ctrl_hy_corrected = pd.read_csv(ctrl_hy_path) 
-prod_hy_corrected = pd.read_csv(prod_hy_path)  
+#prod_hy_corrected = pd.read_csv(prod_hy_path)  
 
 #-------------MoCA Compensation to raw data correction (+1 pt in subs with <=12 YOE)
 pdd_corrected = pdd_csvfile.copy()
 ctrl_corrected = ctrl_csvfile.copy()
-prod_corrected = prod_csvfile.copy()
+#prod_corrected = prod_csvfile.copy()
 
 #PDD
 for index, row in pdd_corrected.iterrows():
@@ -956,24 +962,29 @@ for index, row in ctrl_corrected.iterrows():
         prev =ctrl_corrected['MoCA_Scores'][index]
         ctrl_corrected.loc[index,'MoCA_Scores'] = prev-1
         
-#Prodromal
-for index, row in prod_corrected.iterrows():
-    if row['Years_of_education'] <= 12: #Selects only subjects with less than 12 YOE
-        prev =prod_corrected['MoCA_Scores'][index]
-        prod_corrected.loc[index,'MoCA_Scores'] = prev-1
+# #Prodromal
+# for index, row in prod_corrected.iterrows():
+#     if row['Years_of_education'] <= 12: #Selects only subjects with less than 12 YOE
+#         prev =prod_corrected['MoCA_Scores'][index]
+#         prod_corrected.loc[index,'MoCA_Scores'] = prev-1
 
 
-#%%-----Database Merge / Early-Late Onset selection MoCA (ONLY LONGITUDINALS) PD-Ctrl
+#%%-----Database Merge / Early-Late Onset selection MoCA  PD-Ctrl
 
 merged_db = pd.concat([pdd_corrected, ctrl_corrected], ignore_index=True)
 
 #---------------Extract subjects 
 
-eo_subs_pdd =[]
-lo_subs_pdd =[]
-eo_subs_matched =[]
-lo_subs_matched =[]
-
+#Longitudinal
+eo_l_subs_pd =[]
+lo_l_subs_pd =[]
+eo_l_subs_matched =[]
+lo_l_subs_matched =[]
+#Single 
+eo_s_subs_pd =[]
+lo_s_subs_pd =[]
+eo_s_subs_matched =[]
+lo_s_subs_matched =[]
 
 #Parkinsons
 
@@ -985,12 +996,19 @@ for i in allsubs:
     #Only Subjects with more than 1 MoCA eval 
     if len(pdd_csvfile[pdd_csvfile['Subject_ID']==i]['MoCA_Scores'])>1:
         #Extract Subjects 
-        if pdd_csvfile[pdd_csvfile['Subject_ID']==i]['Onset_Age'].value_counts().index[0] < 50:
-            eo_subs_pdd.append(i)
+        if pdd_csvfile[pdd_csvfile['Subject_ID']==i]['Onset_Age'].value_counts().index[0] < 55:
+            eo_l_subs_pd.append(i)
         
         else:
-            lo_subs_pdd.append(i)
-
+            lo_l_subs_pd.append(i)
+    else: #Single Subjects 
+        #Extract Subjects 
+        if pdd_csvfile[pdd_csvfile['Subject_ID']==i]['Onset_Age'].value_counts().index[0] < 55:
+            eo_s_subs_pd.append(i)
+        else:
+            lo_s_subs_pd.append(i)
+        
+        
 
 #Controls
 
@@ -1002,19 +1020,193 @@ for i in allsubs:
     #Only Subjects with more than 1 MoCA eval 
     if len(ctrl_csvfile[ctrl_csvfile['Subject_ID']==i]['MoCA_Scores'])>1:
         #Extract Subjects 
-        if ctrl_csvfile[ctrl_csvfile['Subject_ID']==i]['Age_at_Test'].value_counts().index[0] < 50:
-            eo_subs_matched.append(i)
+        if ctrl_csvfile[ctrl_csvfile['Subject_ID']==i]['Age_at_Test'].value_counts().index[0] < 55:
+            eo_l_subs_matched.append(i)
         
         else:
-            lo_subs_matched.append(i)
+            lo_l_subs_matched.append(i)
+    else:
+        #Extract Subjects 
+        if ctrl_csvfile[ctrl_csvfile['Subject_ID']==i]['Age_at_Test'].value_counts().index[0] < 55:
+            eo_s_subs_matched.append(i)
+        
+        else:
+            lo_s_subs_matched.append(i)
+
 
 
 #Separate databases by subject group
-whole_eo_subs=eo_subs_pdd + eo_subs_matched
-whole_lo_subs=lo_subs_pdd + lo_subs_matched
+whole_eo_subs=eo_l_subs_pd + eo_l_subs_matched + eo_s_subs_pd + eo_s_subs_matched
+whole_lo_subs=lo_l_subs_pd + lo_l_subs_matched + lo_s_subs_pd + lo_s_subs_matched
 
 eo_db = merged_db.loc[merged_db['Subject_ID'].isin(whole_eo_subs)]
 lo_db = merged_db.loc[merged_db['Subject_ID'].isin(whole_lo_subs)]
+
+
+#----------Add Years Since Onset to PD Database
+
+tmp = pdd_corrected['Age_at_Test']-pdd_corrected['Onset_Age']
+pdd_corrected['YSO']=tmp #Years Since Onset column
+
+#----------Add Early-Late Flag
+
+tmp = pd.Series(np.zeros(len(pdd_corrected)))
+pdd_corrected['EoL']=tmp   #Early or Late column
+pdd_corrected['EoL']= pdd_corrected['EoL'].astype(str) 
+pdd_corrected.loc[pdd_corrected['Subject_ID'].isin(eo_s_subs_pd+eo_l_subs_pd), 'EoL'] = 'Early'
+pdd_corrected.loc[pdd_corrected['Subject_ID'].isin(lo_s_subs_pd+lo_l_subs_pd), 'EoL'] = 'Late'
+
+tmp = pd.Series(np.zeros(len(ctrl_corrected)))
+ctrl_corrected['EoL']=tmp
+ctrl_corrected['EoL']= ctrl_corrected['EoL'].astype(str) 
+ctrl_corrected.loc[ctrl_corrected['Subject_ID'].isin(eo_s_subs_matched+eo_l_subs_matched), 'EoL'] = 'Early'
+ctrl_corrected.loc[ctrl_corrected['Subject_ID'].isin(lo_s_subs_matched+lo_l_subs_matched), 'EoL'] = 'Late'
+
+tmp = pd.Series(np.zeros(len(merged_db)))
+merged_db['EoL']=tmp
+merged_db['EoL']= merged_db['EoL'].astype(str) 
+merged_db.loc[merged_db['Subject_ID'].isin(eo_s_subs_pd+eo_l_subs_pd+eo_s_subs_matched+eo_l_subs_matched), 'EoL'] = 'Early'
+merged_db.loc[merged_db['Subject_ID'].isin(lo_s_subs_pd+lo_l_subs_pd+lo_s_subs_matched+lo_l_subs_matched), 'EoL'] = 'Late'
+
+#--------------------Scaler
+
+pd_db_scaled = pdd_corrected.copy()     #Parkinsons Database
+ctrl_db_scaled = ctrl_corrected.copy() #Controls Database
+merged_db_scaled = merged_db.copy() #Parkinsons + Controls Database 
+
+var = ['Years_of_education','Age_at_Test']
+
+scaler = StandardScaler()
+pd_db_scaled[var+['YSO','Onset_Age','Diagnosis_Age']] = scaler.fit_transform(pd_db_scaled[var+['YSO','Onset_Age','Diagnosis_Age']])
+ctrl_db_scaled[var] = scaler.fit_transform(ctrl_db_scaled[var])
+merged_db_scaled[var] = scaler.fit_transform(merged_db_scaled[var])
+
+
+#%%-----Database Merge / Early-Late Onset selection MoCA  PD-Ctrl
+
+
+#------------------ Status Value replace 
+
+pdd_hy_corrected['HY_Status']=pdd_hy_corrected['HY_Status'].replace('NoTrtOFF',0)
+pdd_hy_corrected['HY_Status']=pdd_hy_corrected['HY_Status'].replace('OFF',0)
+pdd_hy_corrected['HY_Status']=pdd_hy_corrected['HY_Status'].replace('ON',1)
+
+ctrl_hy_corrected['HY_Status']=ctrl_hy_corrected['HY_Status'].replace('NoTrtOFF',0)
+
+#------------------DB merge
+
+merged_db_hy = pd.concat([pdd_hy_corrected, ctrl_hy_corrected], ignore_index=True)
+
+
+#---------------Extract subjects 
+
+#Longitudinal
+eo_l_subs_pd_hy =[]
+lo_l_subs_pd_hy =[]
+eo_l_subs_matched_hy =[]
+lo_l_subs_matched_hy =[]
+#Single 
+eo_s_subs_pd_hy =[]
+lo_s_subs_pd_hy =[]
+eo_s_subs_matched_hy =[]
+lo_s_subs_matched_hy =[]
+
+#Parkinsons
+
+allsubs = pdd_hy_csvfile['Subject_ID'].value_counts()
+allsubs= allsubs.sort_index()
+allsubs=allsubs.index
+
+for i in allsubs:
+    #Only Subjects with more than 1 MoCA eval 
+    if len(pdd_hy_csvfile[pdd_hy_csvfile['Subject_ID']==i]['HY_Scores'])>1:
+        #Extract Subjects 
+        if pdd_hy_csvfile[pdd_hy_csvfile['Subject_ID']==i]['Onset_Age'].value_counts().index[0] < 55:
+            eo_l_subs_pd_hy.append(i)
+        
+        else:
+            lo_l_subs_pd_hy.append(i)
+    else: #Single Subjects 
+        #Extract Subjects 
+        if pdd_hy_csvfile[pdd_hy_csvfile['Subject_ID']==i]['Onset_Age'].value_counts().index[0] < 55:
+            eo_s_subs_pd_hy.append(i)
+        else:
+            lo_s_subs_pd_hy.append(i)
+        
+        
+
+#Controls
+
+allsubs = ctrl_hy_csvfile['Subject_ID'].value_counts()
+allsubs= allsubs.sort_index()
+allsubs=allsubs.index
+
+for i in allsubs:
+    #Only Subjects with more than 1 MoCA eval 
+    if len(ctrl_hy_csvfile[ctrl_hy_csvfile['Subject_ID']==i]['HY_Scores'])>1:
+        #Extract Subjects 
+        if ctrl_hy_csvfile[ctrl_hy_csvfile['Subject_ID']==i]['Age_at_Test'].value_counts().index[0] < 55:
+            eo_l_subs_matched_hy.append(i)
+        
+        else:
+            lo_l_subs_matched_hy.append(i)
+    else:
+        #Extract Subjects 
+        if ctrl_hy_csvfile[ctrl_hy_csvfile['Subject_ID']==i]['Age_at_Test'].value_counts().index[0] < 55:
+            eo_s_subs_matched_hy.append(i)
+        
+        else:
+            lo_s_subs_matched_hy.append(i)
+
+
+
+#Separate databases by subject group
+whole_eo_subs_hy=eo_l_subs_pd_hy + eo_l_subs_matched_hy + eo_s_subs_pd_hy + eo_s_subs_matched_hy
+whole_lo_subs_hy=lo_l_subs_pd_hy + lo_l_subs_matched_hy + lo_s_subs_pd_hy + lo_s_subs_matched_hy
+
+eo_db_hy = merged_db_hy.loc[merged_db_hy['Subject_ID'].isin(whole_eo_subs_hy)]
+lo_db_hy = merged_db_hy.loc[merged_db_hy['Subject_ID'].isin(whole_lo_subs_hy)]
+
+
+#----------Add Years Since Onset to PD Database
+
+tmp = pdd_hy_corrected['Age_at_Test']-pdd_hy_corrected['Onset_Age']
+pdd_hy_corrected['YSO']=tmp #Years Since Onset column
+
+#----------Add Early-Late Flag
+
+tmp = pd.Series(np.zeros(len(pdd_hy_corrected)))
+pdd_hy_corrected['EoL']=tmp   #Early or Late column
+pdd_hy_corrected['EoL']= pdd_hy_corrected['EoL'].astype(str) 
+pdd_hy_corrected.loc[pdd_hy_corrected['Subject_ID'].isin(eo_s_subs_pd_hy+eo_l_subs_pd_hy), 'EoL'] = 'Early'
+pdd_hy_corrected.loc[pdd_hy_corrected['Subject_ID'].isin(lo_s_subs_pd_hy+lo_l_subs_pd_hy), 'EoL'] = 'Late'
+
+tmp = pd.Series(np.zeros(len(ctrl_hy_corrected)))
+ctrl_hy_corrected['EoL']=tmp
+ctrl_hy_corrected['EoL']= ctrl_hy_corrected['EoL'].astype(str) 
+ctrl_hy_corrected.loc[ctrl_hy_corrected['Subject_ID'].isin(eo_s_subs_matched_hy+eo_l_subs_matched_hy), 'EoL'] = 'Early'
+ctrl_hy_corrected.loc[ctrl_hy_corrected['Subject_ID'].isin(lo_s_subs_matched_hy+lo_l_subs_matched_hy), 'EoL'] = 'Late'
+
+tmp = pd.Series(np.zeros(len(merged_db_hy)))
+merged_db_hy['EoL']=tmp
+merged_db_hy['EoL']= merged_db_hy['EoL'].astype(str) 
+merged_db_hy.loc[merged_db_hy['Subject_ID'].isin(eo_s_subs_pd_hy+eo_l_subs_pd_hy+eo_s_subs_matched_hy+eo_l_subs_matched_hy), 'EoL'] = 'Early'
+merged_db_hy.loc[merged_db_hy['Subject_ID'].isin(lo_s_subs_pd_hy+lo_l_subs_pd_hy+lo_s_subs_matched_hy+lo_l_subs_matched_hy), 'EoL'] = 'Late'
+
+#--------------------Scaler
+
+pd_db_hy_scaled = pdd_hy_corrected.copy()     #Parkinsons Database
+ctrl_db_hy_scaled = ctrl_hy_corrected.copy() #Controls Database
+merged_db_hy_scaled = merged_db_hy.copy() #Parkinsons + Controls Database 
+
+var = ['Years_of_education','Age_at_Test']
+
+scaler = StandardScaler()
+pd_db_hy_scaled[var+['YSO','Onset_Age','Diagnosis_Age']] = scaler.fit_transform(pd_db_hy_scaled[var+['YSO','Onset_Age','Diagnosis_Age']])
+ctrl_db_hy_scaled[var] = scaler.fit_transform(ctrl_db_hy_scaled[var])
+merged_db_hy_scaled[var] = scaler.fit_transform(merged_db_hy_scaled[var])
+
+
 
 
 #%%-----Early / Late Models + Interaction 
@@ -1615,51 +1807,6 @@ ax[0].plot(pd_q_x, pd_q_y, linestyle='--', color ='red', linewidth=2)
 ax[1].plot(ctrl_q_x, ctrl_q_y, linestyle='--', color ='red', linewidth=2)
 
 
-#%%-----Database Merge / Early-Late Onset selection (LONGITUDINALS + SINGLE)
-
-merged_db = pd.concat([pdd_corrected, ctrl_corrected], ignore_index=True)
-
-#---------------Extract subjects 
-
-eo_subs_pdd =[]
-lo_subs_pdd =[]
-eo_subs_matched =[]
-lo_subs_matched =[]
-
-
-#Parkinsons
-
-allsubs = pdd_csvfile['Subject_ID'].unique()
-
-for i in allsubs:
-    #Extract Subjects 
-    if pdd_csvfile[pdd_csvfile['Subject_ID']==i]['Onset_Age'].value_counts().index[0] < 50:
-        eo_subs_pdd.append(i)
-    
-    else:
-        lo_subs_pdd.append(i)
-
-
-#Controls
-
-allsubs = ctrl_csvfile['Subject_ID'].unique()
-
-for i in allsubs:
-    #Extract Subjects 
-    if ctrl_csvfile[ctrl_csvfile['Subject_ID']==i]['Age_at_Test'].value_counts().index[0] < 50:
-        eo_subs_matched.append(i)
-    
-    else:
-        lo_subs_matched.append(i)
-
-
-#Separate databases by subject group
-whole_eo_subs=eo_subs_pdd + eo_subs_matched
-whole_lo_subs=lo_subs_pdd + lo_subs_matched
-
-eo_db = merged_db.loc[merged_db['Subject_ID'].isin(whole_eo_subs)]
-lo_db = merged_db.loc[merged_db['Subject_ID'].isin(whole_lo_subs)]
-
 
 #%%-----Early / Late Models + Interaction 
 
@@ -1731,93 +1878,18 @@ print(merged_lm_i.summary())
 
 
 #%%////////////////////////////////HY\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-#%%-----Database Merge / Early-Late Onset selection HY (ONLY LONGITUDINALS)
-
-merged_hy_db = pd.concat([pdd_hy_corrected, ctrl_hy_corrected], ignore_index=True)
-
-#---------------Extract subjects 
-
-eo_hy_subs_pdd =[]
-lo_hy_subs_pdd =[]
-eo_hy_subs_matched =[]
-lo_hy_subs_matched =[]
-
-
-#Parkinsons
-
-allsubs_hy = pdd_hy_csvfile['Subject_ID'].value_counts()
-allsubs_hy= allsubs_hy.sort_index()
-allsubs_hy=allsubs_hy.index
-
-for i in allsubs_hy:
-    #Only Subjects with more than 1 MoCA eval 
-    if len(pdd_hy_csvfile[pdd_hy_csvfile['Subject_ID']==i]['HY_Scores'])>1:
-        #Extract Subjects 
-        if pdd_hy_csvfile[pdd_hy_csvfile['Subject_ID']==i]['Onset_Age'].value_counts().index[0] < 50:
-            eo_hy_subs_pdd.append(i)
-        
-        else:
-            lo_hy_subs_pdd.append(i)
-
-
-#Controls
-
-allsubs_hy = ctrl_hy_csvfile['Subject_ID'].value_counts()
-allsubs_hy= allsubs_hy.sort_index()
-allsubs_hy=allsubs_hy.index
-
-for i in allsubs_hy:
-    #Only Subjects with more than 1 MoCA eval 
-    if len(ctrl_hy_csvfile[ctrl_hy_csvfile['Subject_ID']==i]['HY_Scores'])>1:
-        #Extract Subjects 
-        if ctrl_hy_csvfile[ctrl_hy_csvfile['Subject_ID']==i]['Age_at_Test'].value_counts().index[0] < 50:
-            eo_hy_subs_matched.append(i)
-        
-        else:
-            lo_hy_subs_matched.append(i)
-
-
-#Separate databases by subject group
-whole_eo_hy_subs=eo_hy_subs_pdd + eo_hy_subs_matched
-whole_lo_hy_subs=lo_hy_subs_pdd + lo_hy_subs_matched
-
-eo_hy_db = merged_hy_db.loc[merged_hy_db['Subject_ID'].isin(whole_eo_hy_subs)]
-lo_hy_db = merged_hy_db.loc[merged_hy_db['Subject_ID'].isin(whole_lo_hy_subs)]
-
-
 #%%-----PD / Ctrl Models + Interaction 
 
 #PDD Model
-lm = smf.mixedlm("HY_Scores ~ Sex + Onset_Age + Diagnosis_Age + Years_of_education + Age_at_Test", 
+lm = smf.mixedlm("HY_Scores ~ Sex + Years_of_education + Age_at_Test + EoL + HY_Status +YSO", 
+                 pd_db_hy_scaled, groups=pd_db_hy_scaled["Subject_ID"], re_formula='~Age_at_Test')
+pdd_lm = lm.fit()
+print('\n\n\nPDD Model Scaled (Long+Single)')
+print(pdd_lm.summary())
+
+lm = smf.mixedlm("HY_Scores ~ Sex + Years_of_education + Age_at_Test + EoL + HY_Status +YSO", 
                  pdd_hy_corrected, groups=pdd_hy_corrected["Subject_ID"], re_formula='~Age_at_Test')
 pdd_lm = lm.fit()
 print('\n\n\nPDD Model (Long+Single)')
 print(pdd_lm.summary())
 
-lm = smf.mixedlm("HY_Scores ~ Sex + Years_of_education + Age_at_Test", 
-                 pdd_hy_corrected, groups=pdd_hy_corrected["Subject_ID"], re_formula='~Age_at_Test')
-pdd_lm = lm.fit()
-print('\n\n\nPDD Model 2 (Long+Single)')
-print(pdd_lm.summary())
-
-#Ctrl Model 
-lm = smf.mixedlm("HY_Scores ~ Sex + Years_of_education + Age_at_Test", 
-                 ctrl_hy_corrected, groups=ctrl_hy_corrected["Subject_ID"], re_formula='~Age_at_Test')
-ctrl_lm = lm.fit()
-print('\nCtrl Model (Long+Single)')
-print(ctrl_lm.summary())
-
-#Merge Model 
-lm = smf.mixedlm("HY_Scores ~ Sex + Years_of_education + Age_at_Test + Diagnosis_Age + Group", 
-                 merged_hy_db, groups=merged_hy_db["Subject_ID"], re_formula='~Age_at_Test')
-merged_lm = lm.fit()
-print('\nMerged Model')
-print(merged_lm.summary())
-
-#Merge Model + interaction
-merged_hy_db = pd.concat([pdd_hy_corrected, ctrl_hy_corrected])
-lm = smf.mixedlm("HY_Scores ~ Sex + Years_of_education + Age_at_Test + Diagnosis_Age + Group+ Age_at_Test*Group", 
-                 merged_hy_db, groups=merged_hy_db["Subject_ID"], re_formula='~Age_at_Test')
-merged_lm_i = lm.fit()
-print('\nMerged Model + interaction')
-print(merged_lm_i.summary())
