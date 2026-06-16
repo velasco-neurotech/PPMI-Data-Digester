@@ -32,9 +32,14 @@ todos los sujetos sin importar la modalidad.
 
 - Se añade el módulo para hacer los plots de escala Hoehn Yahr
 
+////////////Ver 5.1 Update ///////////
+
+- En las gráficas de Hoehn-Yahr se pueden separar por estado ON-OFF después de haber actualizado la 
+arquitectura de datos en Clini-Trak (v2.3)
+
 """
 
-VER='5.0'
+VER='5.1'
 
 import easygui as eg
 import os                #Sirve para el Manejo de archivos
@@ -4135,62 +4140,24 @@ if 'Control-Parkinsons' in stype:
     pdd_sorted_ct_df_file = pdd_filtered_df_file.sort_values('Onset_Age')
     ctrl_sorted_ct_df_file = ctrl_filtered_df_file.sort_values('Birthdate', ascending=False)
     
-    
     #Convert Birthdate column to string
     ctrl_sorted_ct_df_file['Birthdate'] = ctrl_sorted_ct_df_file['Birthdate'].dt.strftime('%m/%Y')
     
-    #Extract sorted ages
-    pdd_ages= [int(a) for a in pdd_sorted_ct_df_file['Onset_Age']]
-    
-    #Slopes by age rank
-    rank_30_40_pdd_slopes=[]
-    rank_30_40_ctrl_slopes=[]
-    
-    rank_40_50_pdd_slopes=[]
-    rank_40_50_ctrl_slopes=[]
-    
-    rank_50_60_pdd_slopes=[]
-    rank_50_60_ctrl_slopes=[]
-    
-    rank_60_70_pdd_slopes=[]
-    rank_60_70_ctrl_slopes=[]
-    
-    rank_70_80_pdd_slopes=[]
-    rank_70_80_ctrl_slopes=[]
-    
-    rank_80_90_pdd_slopes=[]
-    rank_80_90_ctrl_slopes=[]
-    
-    #Years of education by age rank
-    rank_30_40_pdd_yoe=[]
-    rank_30_40_ctrl_yoe=[]
-    
-    rank_40_50_pdd_yoe=[]
-    rank_40_50_ctrl_yoe=[]
-    
-    rank_50_60_pdd_yoe=[]
-    rank_50_60_ctrl_yoe=[]
-    
-    rank_60_70_pdd_yoe=[]
-    rank_60_70_ctrl_yoe=[]
-    
-    rank_70_80_pdd_yoe=[]
-    rank_70_80_ctrl_yoe=[]
-    
-    rank_80_90_pdd_yoe=[]
-    rank_80_90_ctrl_yoe=[]
-    
+
     #-------------------HY vs Age
     
     #Initialize Figure
-    fig, ax = plt.subplots(2,1)
+    fig, ax = plt.subplots(3,1)
     fig.set_figheight(7)
     fig.set_figwidth(14)
     plt.suptitle('Evolution Trayectories H-Y Score vs Age_'+sname, fontsize=16)
     
     #Iterate through PDD subjects 
-    print('_init_Parkinsons')
+    print('_init_Parkinsons OFF')
     
+    
+    #Extract sorted ages
+    pdd_ages= [int(a) for a in pdd_sorted_ct_df_file['Onset_Age']]
     #Extract number of ages (colorbar length)
     N=len(pdd_ages)
     #Assign Colormap
@@ -4228,55 +4195,37 @@ if 'Control-Parkinsons' in stype:
                 y= y.replace('nan','10101') #Barcoding to remove date in case of nan
             y = np.array(eval(y))
             
+            #-- Subject Hy Status 
+            #Redefine as list of values (was string)
+            stat = pdd_sorted_ct_df_file[(pdd_sorted_ct_df_file['Subject_ID']==i)]['HY_Status'].values[0]
+            stat = stat.replace('NoTrtOFF','0') #Change OFF values to 0 
+            stat = stat.replace('OFF','0')
+            stat = stat.replace('ON','1') #Change ON values to 1
+            stat = np.array(eval(stat)) #Define Array
+            stat = np.array([int(z) for z in stat]) #Set values as integer
+                        
             #--Remove date if nan in score
             if 10101 in y:
                 #print('Nan in data')
                 x=x[y!=10101]
                 y=y[y!=10101]
+                stat = stat[y!=10101]
             
             #--Age-Score dataframe 
-            tmp = pd.DataFrame({'x':x, 'y':y})
+            tmp = pd.DataFrame({'x':x, 'y':y, 'status':stat})
             tmp.sort_values(by='x', inplace =True)
             tmp.reset_index(inplace=True, drop = True)
             tmp = tmp[tmp['y']!=101]
             x = tmp['x'].values
             y = tmp['y'].values
+            z = tmp['status'].values 
+            
             
             #------Age vs HY score
-            plot = ax[0].plot(x,y,alpha = 0.7, c=cmap(j), marker ='o', markersize=3, linestyle='--')
-            
-            #-----Obtain Subjects years of education
-            yoe = float(pdd_sorted_ct_df_file[(pdd_sorted_ct_df_file['Subject_ID']==i)]['Years_of_education'].value_counts().index[0])
+            plot = ax[0].plot(tmp[tmp['status']==0]['x'],tmp[tmp['status']==0]['y'],alpha = 0.7, c=cmap(j), marker ='o', markersize=3, linestyle='--')
+            plot = ax[1].plot(tmp[tmp['status']==1]['x'],tmp[tmp['status']==1]['y'],alpha = 0.7, c=cmap(j), marker ='o', markersize=3, linestyle='--')
             
             
-            #-----Linear regression 
-            x_lr= x.reshape((-1,1)) #Reshape x
-            model=LinearRegression().fit(x_lr,y)
-            #print(str(model.coef_ [0]))
-            #if model.coef_[0]!=0:
-            pdd_rsq.append(model.score(x_lr,y))
-            pdd_slopes.append(model.coef_[0])
-        
-            #Rank slope append
-            if x[0]<=40:
-                rank_30_40_pdd_slopes.append(model.coef_ [0])
-                rank_30_40_pdd_yoe.append(yoe)
-            elif x[0]<=50:
-                rank_40_50_pdd_slopes.append(model.coef_ [0])
-                rank_40_50_pdd_yoe.append(yoe)
-            elif x[0]<=60:
-                rank_50_60_pdd_slopes.append(model.coef_ [0])
-                rank_50_60_pdd_yoe.append(yoe)
-            elif x[0]<=70:
-                rank_60_70_pdd_slopes.append(model.coef_ [0])
-                rank_60_70_pdd_yoe.append(yoe)
-            elif x[0]<=80:
-                rank_70_80_pdd_slopes.append(model.coef_ [0])
-                rank_70_80_pdd_yoe.append(yoe)
-            else:
-                rank_80_90_pdd_slopes.append(model.coef_ [0])
-                rank_80_90_pdd_yoe.append(yoe)
-                
                 
     
     #Normalize color data for colorbar 
@@ -4284,7 +4233,7 @@ if 'Control-Parkinsons' in stype:
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
     sm.set_array([])
     fig.colorbar(sm, ax=ax[0], label = 'Onset Age')
-    
+    fig.colorbar(sm, ax=ax[1], label = 'Onset Age')
     
     #Iterate through control subjects
     print('_init_Controls')
@@ -4338,56 +4287,34 @@ if 'Control-Parkinsons' in stype:
             y = tmp['y'].values
                     
             #------Age vs HY Score Plot
-            plot = ax[1].plot(x,y,alpha = 0.5, c=cmap(j), marker ='o', markersize=3, linestyle='--') 
+            plot = ax[2].plot(x,y,alpha = 0.5, c=cmap(j), marker ='o', markersize=3, linestyle='--') 
             
             #-----Obtain Subjects years of education
             yoe = float(ctrl_sorted_ct_df_file[(ctrl_sorted_ct_df_file['Subject_ID']==i)]['Years_of_education'].value_counts().index[0])
             
             
-            #-----Linear regression 
-            x_lr= x.reshape((-1,1)) #Reshape x
-            model=LinearRegression().fit(x_lr,y)
-            #if model.coef_[0]!=0:
-            ctrl_rsq.append(model.score(x_lr,y))
-            ctrl_slopes.append(model.coef_[0])
-        
-            #Rank slope append
-            if x[0]<=40:
-                rank_30_40_ctrl_slopes.append(model.coef_ [0])
-                rank_30_40_ctrl_yoe.append(yoe)
-            elif x[0]<=50:
-                rank_40_50_ctrl_slopes.append(model.coef_ [0])
-                rank_40_50_ctrl_yoe.append(yoe)
-            elif x[0]<=60:
-                rank_50_60_ctrl_slopes.append(model.coef_ [0])
-                rank_50_60_ctrl_yoe.append(yoe)
-            elif x[0]<=70:
-                rank_60_70_ctrl_slopes.append(model.coef_ [0])
-                rank_60_70_ctrl_yoe.append(yoe)
-            elif x[0]<=80:
-                rank_70_80_ctrl_slopes.append(model.coef_ [0])
-                rank_70_80_ctrl_yoe.append(yoe)
-            else:
-                rank_80_90_ctrl_slopes.append(model.coef_ [0])
-                rank_80_90_ctrl_yoe.append(yoe)
-              
             
         
-    ax[0].set_title('Parkinsons          n='+str(len(plotted_subs_pdd)), pad = 0, fontsize= 10, loc = 'right')
-    ax[1].set_title('Controls          n='+str(len(plotted_subs_ctrl)), pad = 0, fontsize= 10, loc = 'right')
+    ax[0].set_title('Parkinsons   OFF       n='+str(len(plotted_subs_pdd)), pad = 0, fontsize= 10, loc = 'right')
+    ax[1].set_title('Parkinsons   ON       ', pad = 0, fontsize= 10, loc = 'right')
+    ax[2].set_title('Controls          n='+str(len(plotted_subs_ctrl)), pad = 0, fontsize= 10, loc = 'right')
     ax[0].set(ylabel='HY Score')
-    ax[1].set(xlabel='Age', ylabel='HY Score')
+    ax[1].set(ylabel='HY Score')
+    ax[2].set(xlabel='Age', ylabel='HY Score')
     ax[0].set_ylim([5.5,-0.5])
     ax[1].set_ylim([5.5,-0.5])
+    ax[2].set_ylim([5.5,-0.5])
     ax[0].set_xlim([28,93])
     ax[1].set_xlim([28,93])
+    ax[2].set_xlim([28,93])
     
     #Normalize color data for colorbar 
     norm = mpl.colors.Normalize(vmin=min(pdd_ages),vmax=max(pdd_ages))
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
     sm.set_array([])
-    fig.colorbar(sm, ax=ax[1], label ='Age at first HY')
+    fig.colorbar(sm, ax=ax[2], label ='Age at first HY')
     plt.show()
-     
+    
+    plt.tight_layout()
     
     plt.savefig('Evolution Trayectories HY Score vs Age_'+(os.path.basename(sv_path)[:-4])+'_'+sname)
