@@ -97,9 +97,14 @@ Ahora genera el segundo archivo LINMOD_HY_ con los puntajes de Test Horen-Yahr
 
 Se modifican funciones para integrar columna de estatus ON OFF Hoehn Yahr en los archivos LINMOD 
 
+//////////////////// VER 2.4 Update /////////////////////////////
+18/6/26
+
+Added Left-Right Handedness to Ctrl-PD and Left-Right Symptoms laterality to PD subjects
+
 """
 
-VER='2.2'
+VER='2.4'
 
 import easygui as eg
 import os                #Sirve para el Manejo de archivos
@@ -235,18 +240,23 @@ if stype == 'Parkinsons':     #If subject type is Parkinsons
     for i in subjects:
         #print('\n')
         #------Extract Sex from Internal file
-        sex = intfile[(intfile['Subject']==i)]['Sex'].value_counts().index[0]
+        sex = intfile[(intfile['Subject']==i)]['Sex'].iloc[0]
         
-        #------Extract Birthdate from Demographics file 
+        #------Extract Birthdate and Handedness from Demographics file 
         if i in demsfile['PATNO']:
-            birthdate = demsfile[(demsfile['PATNO']==i)]['BIRTHDT'].value_counts().index[0]   
+            birthdate = demsfile[(demsfile['PATNO']==i)]['BIRTHDT'].iloc[0]   
+            hand = demsfile[(demsfile['PATNO']==i)]['HANDED']
+            hand = hand.map(lambda x: 'Right' if x ==1.0 else 'Left' if x==2.0 else 'Ambidex' if x==3.0 else x).iloc[0]
+            
         else:
-            print('Patient '+str(i)+' not in Demographics file, Birth Year inferred')
+            print('Patient '+str(i)+' not in Demographics file, Birth Year inferred, Handedness Undisclosed')
             dems_exclusions.append(i)
-            birthdate =str(int(datetime.strptime(intfile[(intfile['Subject']==i)]['Acq Date'].value_counts().index[0], '%m/%d/%Y').strftime('%Y'))-int(intfile[(intfile['Subject']==i)]['Age'].value_counts().index[0]))
+            birthdate =str(int(datetime.strptime(intfile[(intfile['Subject']==i)]['Acq Date'].iloc[0], '%m/%d/%Y').strftime('%Y'))-int(intfile[(intfile['Subject']==i)]['Age'].iloc[0]))
             birthdate = datetime.strptime(birthdate, '%Y').strftime('%m/%Y')
+            hand = 'NO DATA'
             with open (sname+' - Clini-Trak Log File.txt', 'a') as savefile:
-                savefile.write('Patient '+str(i)+' not in Demographics file, Birth Year inferred\n')
+                savefile.write('Patient '+str(i)+' not in Demographics file, Birth Year inferred, Handedness Undisclosed\n')
+                
        
         #------Extract Modalities from Internal file
         ni_check=0 #Checks if patient has useful mri sequences
@@ -272,7 +282,7 @@ if stype == 'Parkinsons':     #If subject type is Parkinsons
 
         #------Extract education years from socioeconomics file
         if i in socecfile['PATNO']:
-            yoe = socecfile[(socecfile['PATNO']==i)]['EDUCYRS'].value_counts().index[0] 
+            yoe = socecfile[(socecfile['PATNO']==i)]['EDUCYRS'].iloc[0] 
         else:
             print('Patient '+str(i)+' not in Socioeconomics file')
             yoe='NO DATA'
@@ -351,12 +361,17 @@ if stype == 'Parkinsons':     #If subject type is Parkinsons
                 with open (sname+' - Clini-Trak Log File.txt', 'a') as savefile:
                     savefile.write('Patient '+str(i)+' does not have Onset Date Data\n')
             
+            #----Extract Symptoms Laterality at diagnosis
+            side = pdiagfile[list(pdiagfile['PATNO']==i)]['DOMSIDE']
+            side = side.map(lambda x: 'Left' if x ==1.0 else 'Right' if x==2.0 else 'Symmetric' if x==3.0 else x).iloc[0]
+            
         else:
             print('Patient '+str(i)+' not in PD_Diagnosis_History file')
             onsetdate='NO DATA'
             diagdate='NO DATA'
             onsetage= 'NO DATA'
             diagage= 'NO DATA'
+            side = 'NO DATA'
             pdiag_exclusions.append(i)
             with open (sname+' - Clini-Trak Log File.txt', 'a') as savefile:
                 savefile.write('Patient '+str(i)+' not in PD_Diagnosis_History file\n')
@@ -367,15 +382,17 @@ if stype == 'Parkinsons':     #If subject type is Parkinsons
         pdd_temp_dict={'Subject_ID':int(i), 
                       'Sex':sex, 
                       'Birthdate':birthdate, 
-                      'Group':intfile[(intfile['Subject']==i)]['Group'].value_counts().index[0], 
+                      'Group':intfile[(intfile['Subject']==i)]['Group'].iloc[0], 
                       'Modality':modality,  
                       'Years_of_education':yoe, 
+                      'Handedness':hand,
                       'HY_Scores':hyscores, 
                       'HY_Dates':hydates, 
                       'MoCA_Scores':mocascore, 
                       'MoCA_Dates':mocadates,
                       'Onset_Date':onsetdate,
                       'Onset_Age':onsetage,
+                      'Sympt_Laterality':side,
                       'Diagnosis_Date':diagdate,
                       'Diagnosis_Age':diagage,
                       'HY_Status':hystatus}
@@ -390,19 +407,25 @@ else:
     
     for i in subjects:
         #------Extract Sex from Internal file
-        sex = intfile[(intfile['Subject']==i)]['Sex'].value_counts().index[0]
+        sex = intfile[(intfile['Subject']==i)]['Sex'].iloc[0]
         
-        #------Extract Birthdate from Demographics file 
+        #------Extract Birthdate and Handedness from Demographics file 
         if i in list(demsfile['PATNO']):
-            birthdate = demsfile[(demsfile['PATNO']==i)]['BIRTHDT'].value_counts().index[0]   
+            birthdate = demsfile[(demsfile['PATNO']==i)]['BIRTHDT'].iloc[0]   
+            hand = demsfile[(demsfile['PATNO']==i)]['HANDED']
+            hand = hand.map(lambda x: 'Right' if x ==1.0 else 'Left' if x==2.0 else 'Ambidex' if x==3.0 else x).iloc[0]
+            
         else:
-            print('Patient '+str(i)+' not in Demographics file, Birth Year inferred')
+            print('Patient '+str(i)+' not in Demographics file, Birth Year inferred, Handedness Undisclosed')
             dems_exclusions.append(i)
-            birthdate =str(int(datetime.strptime(intfile[(intfile['Subject']==i)]['Acq Date'].value_counts().index[0], '%m/%d/%Y').strftime('%Y'))-int(intfile[(intfile['Subject']==i)]['Age'].value_counts().index[0]))
+            birthdate =str(int(datetime.strptime(intfile[(intfile['Subject']==i)]['Acq Date'].iloc[0], '%m/%d/%Y').strftime('%Y'))-int(intfile[(intfile['Subject']==i)]['Age'].iloc[0]))
             birthdate = datetime.strptime(birthdate, '%Y').strftime('%m/%Y')
+            hand = 'NO DATA'
             with open (sname+' - Clini-Trak Log File.txt', 'a') as savefile:
-                savefile.write('Patient '+str(i)+' not in Demographics file, Birth Year inferred\n')
-       
+                savefile.write('Patient '+str(i)+' not in Demographics file, Birth Year inferred, Handedness Undisclosed\n')
+
+               
+
         #------Extract Modalities from Internal file
         ni_check=0 #Checks if patient has useful mri sequences
         modality=[]
@@ -427,7 +450,7 @@ else:
 
         #------Extract education years from socioeconomics file
         if i in list(socecfile['PATNO']):
-            yoe = socecfile[(socecfile['PATNO']==i)]['EDUCYRS'].value_counts().index[0] 
+            yoe = socecfile[(socecfile['PATNO']==i)]['EDUCYRS'].iloc[0] 
         else:
             print('Patient '+str(i)+' not in Socioeconomics file')
             yoe='NO DATA'
@@ -485,9 +508,10 @@ else:
         pdd_temp_dict={'Subject_ID':int(i), 
                       'Sex':sex, 
                       'Birthdate':birthdate, 
-                      'Group':intfile[(intfile['Subject']==i)]['Group'].value_counts().index[0], 
+                      'Group':intfile[(intfile['Subject']==i)]['Group'].iloc[0], 
                       'Modality':modality,  
                       'Years_of_education':yoe, 
+                      'Handedness':hand,
                       'HY_Scores':hyscores, 
                       'HY_Dates':hydates, 
                       'MoCA_Scores':mocascore, 
@@ -658,6 +682,7 @@ def linmod_df_filler(stype, c, dates, scores, sub_dict, testname, hystatus=0):
     group=[sub_dict.get('Group')]*rownum
     modality=[sub_dict.get('Modality')]*rownum
     yoe=[sub_dict.get('Years_of_education')]*rownum
+    hand = [sub_dict.get('Handedness')]*rownum
     
     #------Lists of calculated items 
     
@@ -679,6 +704,7 @@ def linmod_df_filler(stype, c, dates, scores, sub_dict, testname, hystatus=0):
         if testname == 'MoCA':
             onsetage=[i.get('Onset_Age')]*rownum
             diagnosisage=[i.get('Diagnosis_Age')]*rownum
+            side = [sub_dict.get('Sympt_Laterality')]*rownum
             if c ==0:
                 df=pd.DataFrame({
                 'Subject_ID': subid,
@@ -688,13 +714,15 @@ def linmod_df_filler(stype, c, dates, scores, sub_dict, testname, hystatus=0):
                 'Group':group,
                 'Modality':modality,
                 'Years_of_education':yoe,
+                'Handedness':hand,
                 testname+'_Scores': scores,
                 testname+'_Dates':dates,
                 'Age_at_Test': ageAtTest,
                 'Days_between_Tests':np.abs(daysBetween),
                 'Slope': slope,
                 'Onset_Age':onsetage,
-                'Diagnosis_Age':diagnosisage
+                'Diagnosis_Age':diagnosisage,
+                'Sympt_Laterality':side
                 })
                 
                 c2=1
@@ -708,13 +736,15 @@ def linmod_df_filler(stype, c, dates, scores, sub_dict, testname, hystatus=0):
                 'Group':group,
                 'Modality':modality,
                 'Years_of_education':yoe,
+                'Handedness':hand,
                 testname+'_Scores': scores,
                 testname+'_Dates':dates,
                 'Age_at_Test': ageAtTest,
                 'Days_between_Tests':np.abs(daysBetween),
                 'Slope': slope,
                 'Onset_Age':onsetage,
-                'Diagnosis_Age':diagnosisage
+                'Diagnosis_Age':diagnosisage,
+                'Sympt_Laterality':side
                 })
                 
                 return tmp_df
@@ -722,6 +752,7 @@ def linmod_df_filler(stype, c, dates, scores, sub_dict, testname, hystatus=0):
         elif testname == 'HY':
             onsetage=[i.get('Onset_Age')]*rownum
             diagnosisage=[i.get('Diagnosis_Age')]*rownum
+            side = [sub_dict.get('Sympt_Laterality')]*rownum
             if c ==0:
                 df=pd.DataFrame({
                 'Subject_ID': subid,
@@ -731,6 +762,7 @@ def linmod_df_filler(stype, c, dates, scores, sub_dict, testname, hystatus=0):
                 'Group':group,
                 'Modality':modality,
                 'Years_of_education':yoe,
+                'Handedness':hand,
                 testname+'_Scores': scores,
                 testname+'_Dates':dates,
                 'Age_at_Test': ageAtTest,
@@ -738,7 +770,8 @@ def linmod_df_filler(stype, c, dates, scores, sub_dict, testname, hystatus=0):
                 'Slope': slope,
                 'Onset_Age':onsetage,
                 'Diagnosis_Age':diagnosisage,
-                'HY_Status':hystatus
+                'HY_Status':hystatus,
+                'Sympt_Laterality':side
                 })
                 
                 c2=1
@@ -752,6 +785,7 @@ def linmod_df_filler(stype, c, dates, scores, sub_dict, testname, hystatus=0):
                 'Group':group,
                 'Modality':modality,
                 'Years_of_education':yoe,
+                'Handedness':hand,
                 testname+'_Scores': scores,
                 testname+'_Dates':dates,
                 'Age_at_Test': ageAtTest,
@@ -759,7 +793,8 @@ def linmod_df_filler(stype, c, dates, scores, sub_dict, testname, hystatus=0):
                 'Slope': slope,
                 'Onset_Age':onsetage,
                 'Diagnosis_Age':diagnosisage,
-                'HY_Status':hystatus
+                'HY_Status':hystatus,
+                'Sympt_Laterality':side
                 })
                 
                 return tmp_df
@@ -776,13 +811,15 @@ def linmod_df_filler(stype, c, dates, scores, sub_dict, testname, hystatus=0):
                 'Group':group,
                 'Modality':modality,
                 'Years_of_education':yoe,
+                'Handedness': hand,
                 testname+'_Scores': scores,
                 testname+'_Dates':dates,
                 'Age_at_Test': ageAtTest,
                 'Days_between_Tests':np.abs(daysBetween),
                 'Slope': slope,
                 'Onset_Age':np.zeros((rownum)),
-                'Diagnosis_Age':np.zeros((rownum))
+                'Diagnosis_Age':np.zeros((rownum)),
+                'Sympt_Laterality':np.zeros((rownum))
                 })
                 
                 c2=1
@@ -796,13 +833,15 @@ def linmod_df_filler(stype, c, dates, scores, sub_dict, testname, hystatus=0):
                 'Group':group,
                 'Modality':modality,
                 'Years_of_education':yoe,
+                'Handedness':hand,
                 testname+'_Scores': scores,
                 testname+'_Dates':dates,
                 'Age_at_Test': ageAtTest,
                 'Days_between_Tests':np.abs(daysBetween),
                 'Slope': slope,
                 'Onset_Age':np.zeros((rownum)),
-                'Diagnosis_Age':np.zeros((rownum))
+                'Diagnosis_Age':np.zeros((rownum)),
+                'Sympt_Laterality':np.zeros((rownum))
                 })
                 
                 return tmp_df
@@ -817,6 +856,7 @@ def linmod_df_filler(stype, c, dates, scores, sub_dict, testname, hystatus=0):
                 'Group':group,
                 'Modality':modality,
                 'Years_of_education':yoe,
+                'Handedness':hand,
                 testname+'_Scores': scores,
                 testname+'_Dates':dates,
                 'Age_at_Test': ageAtTest,
@@ -824,6 +864,7 @@ def linmod_df_filler(stype, c, dates, scores, sub_dict, testname, hystatus=0):
                 'Slope': slope,
                 'Onset_Age':np.zeros((rownum)),
                 'Diagnosis_Age':np.zeros((rownum)),
+                'Sympt_Laterality':np.zeros((rownum)),
                 'HY_Status':hystatus
                 })
                 
@@ -838,6 +879,7 @@ def linmod_df_filler(stype, c, dates, scores, sub_dict, testname, hystatus=0):
                 'Group':group,
                 'Modality':modality,
                 'Years_of_education':yoe,
+                'Handedness':hand,
                 testname+'_Scores': scores,
                 testname+'_Dates':dates,
                 'Age_at_Test': ageAtTest,
@@ -845,6 +887,7 @@ def linmod_df_filler(stype, c, dates, scores, sub_dict, testname, hystatus=0):
                 'Slope': slope,
                 'Onset_Age':np.zeros((rownum)),
                 'Diagnosis_Age':np.zeros((rownum)),
+                'Sympt_Laterality':np.zeros((rownum)),
                 'HY_Status':hystatus
                 })
                 
