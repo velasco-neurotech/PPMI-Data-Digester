@@ -21,12 +21,16 @@ Creates Dataframe with only MRI Data and LINMOD file with clinical data
 
 //////////////UPDATE v1.1/////////////////////
 
-- Data management to include HY Status ON-OFF on cols 
+- Data management to include HY Status ON-OFF on cols
+
+//////////////UPDATE v1.2////////////////////
+
+- Drop columns with repeated values coming from Clini-Trak v2.4
 
 """
 
 
-VER='1'
+VER='1.1'
 
 import easygui as eg
 import os                #Sirve para el Manejo de archivos
@@ -72,9 +76,9 @@ def closest_dates(l1, l2):
 
 #-----Session Values Input
 #Session Name
-message = 'Please input Session Name or ID'
+message = 'Please Select Data Type'
 title = "BrAiN-Trak "+VER+" - Start"
-sname = eg.enterbox(message, title) #Session Name
+sname = eg.choicebox(message, title, ['Longitudinal','Single']) #Session Name
 
 #Subject Type
 message = 'Please select Subject Type'
@@ -93,12 +97,12 @@ if 'Parkinsons' in stype:
     
     #PDD
     #AssemblyNet Batch Files path 
-    message = 'Please Select AssemblyNet PD Batch Files Directory'
+    message = 'Please Select AssemblyNet '+sname+' PD Batch Files Directory'
     title = "BrAiN-Trak "+VER+" - "
     temp_path = eg.diropenbox(message, title, default=r"C:/Users/Admin/Desktop/Maestría en Neurobiología/Proyecto") 
     pd_AN_batch_path = temp_path.replace(os.path.sep ,"/")
     #MRIQC FLTRD File path
-    message = 'Please Select FLTRD MRIQC PD File'
+    message = 'Please Select FLTRD MRIQC '+sname+' PD File'
     title = "BrAiN-Trak "+VER+" - "
     temp_path = eg.fileopenbox(message, title, default=r"C:/Users/Admin/Desktop/Maestría en Neurobiología/Proyecto") 
     pd_fltrd_path = temp_path.replace(os.path.sep ,"/")
@@ -117,12 +121,12 @@ if 'Parkinsons' in stype:
 if 'Control' in stype:
     #Ctrl
     #AssemblyNet Batch Files path 
-    message = 'Please Select AssemblyNet Ctrl Batch Files Directory'
+    message = 'Please Select AssemblyNet '+sname+' Ctrl Batch Files Directory'
     title = "BrAiN-Trak "+VER+" - "
     temp_path = eg.diropenbox(message, title, default=r"C:/Users/Admin/Desktop/Maestría en Neurobiología/Proyecto") 
     ctrl_AN_batch_path = temp_path.replace(os.path.sep ,"/")
     #MRIQC FLTRD File path
-    message = 'Please Select FLTRD MRIQC Ctrl File'
+    message = 'Please Select FLTRD MRIQC '+sname+' Ctrl File'
     title = "BrAiN-Trak "+VER+" - "
     temp_path = eg.fileopenbox(message, title, default=r"C:/Users/Admin/Desktop/Maestría en Neurobiología/Proyecto") 
     ctrl_fltrd_path = temp_path.replace(os.path.sep ,"/")
@@ -143,12 +147,12 @@ if 'Prodromal' in stype:
     
     #Prodromals
     #AssemblyNet Batch Files path 
-    message = 'Please Select AssemblyNet Prodromals Batch Files Directory'
+    message = 'Please Select AssemblyNet '+sname+' Prodromals Batch Files Directory'
     title = "BrAiN-Trak "+VER+" - "
     temp_path = eg.diropenbox(message, title, default=r"C:/Users/Admin/Desktop/Maestría en Neurobiología/Proyecto") 
     prod_AN_batch_path = temp_path.replace(os.path.sep ,"/")
     #MRIQC FLTRD File path
-    message = 'Please Select FLTRD MRIQC Prodromals File'
+    message = 'Please Select FLTRD MRIQC '+sname+' Prodromals File'
     title = "BrAiN-Trak "+VER+" - "
     temp_path = eg.fileopenbox(message, title, default=r"C:/Users/Admin/Desktop/Maestría en Neurobiología/Proyecto") 
     prod_fltrd_path = temp_path.replace(os.path.sep ,"/")
@@ -328,7 +332,7 @@ if 'Parkinsons' in stype:
             print(i)
             ct_tmp = pd_moca_file[pd_moca_file['Subject_ID']==i]  #Clini-Trak data for current subject
             bt_tmp = pd_dataframe[pd_dataframe['SubjectID']==i] #Brain-Trak data for current subject
-            ct_tmp = ct_tmp.drop(columns=['Subject_ID','Sex','Birthdate','Group','Modality','Years_of_education','Onset_Age','Diagnosis_Age'])
+            ct_tmp = ct_tmp.drop(columns=['Subject_ID','Sex','Birthdate','Group','Modality','Years_of_education','Onset_Age','Diagnosis_Age','Handedness','Test_Number','Sympt_Laterality'])
             if len(ct_tmp)>1 and len(ct_tmp)>1: #If List is longer than 1
                 matcher= closest_dates(list(bt_tmp['Date']), list(ct_tmp['MoCA_Dates'])) #Find closest dates for BrainTrak in CliniTrak 
                 ct_tmp = ct_tmp[ct_tmp['MoCA_Dates'].isin(matcher)] #Drop all rows of dates not as close to orginal dates
@@ -345,7 +349,7 @@ if 'Parkinsons' in stype:
             print(i)
             ct_tmp = pd_moca_file[pd_moca_file['Subject_ID']==i]  #Clini-Trak data for current subject
             bt_tmp = pd_dataframe[pd_dataframe['SubjectID']==i] #Braint-Track data for current subject
-            ct_tmp = ct_tmp.drop(columns=['Subject_ID','Sex','Birthdate','Group','Modality','Years_of_education','Onset_Age','Diagnosis_Age'])
+            ct_tmp = ct_tmp.drop(columns=['Subject_ID','Sex','Birthdate','Group','Modality','Years_of_education','Onset_Age','Diagnosis_Age','Handedness','Test_Number','Sympt_Laterality'])
             if len(ct_tmp)>1 and len(ct_tmp)>1: #If List is longer than 1
                 matcher= closest_dates(list(bt_tmp['Date']), list(ct_tmp['MoCA_Dates'])) #Find closest dates for BrainTrak in CliniTrak 
                 ct_tmp = ct_tmp[ct_tmp['MoCA_Dates'].isin(matcher)] #Drop all rows of dates not as close to orginal dates
@@ -418,7 +422,7 @@ if 'Control' in stype:
             print(i)
             ct_tmp = ctrl_moca_file[ctrl_moca_file['Subject_ID']==i]  #Clini-Trak data for current subject
             bt_tmp = ctrl_dataframe[ctrl_dataframe['SubjectID']==i] #Brain-Trak data for current subject
-            ct_tmp = ct_tmp.drop(columns=['Subject_ID','Sex','Birthdate','Group','Modality','Years_of_education','Onset_Age','Diagnosis_Age'])
+            ct_tmp = ct_tmp.drop(columns=['Subject_ID','Sex','Birthdate','Group','Modality','Years_of_education','Onset_Age','Diagnosis_Age','Handedness','Test_Number','Sympt_Laterality'])
             if len(ct_tmp)>1 and len(ct_tmp)>1: #If List is longer than 1
                 matcher= closest_dates(list(bt_tmp['Date']), list(ct_tmp['MoCA_Dates'])) #Find closest dates for BrainTrak in CliniTrak 
                 ct_tmp = ct_tmp[ct_tmp['MoCA_Dates'].isin(matcher)] #Drop all rows of dates not as close to orginal dates
@@ -435,7 +439,7 @@ if 'Control' in stype:
             print(i)
             ct_tmp = ctrl_moca_file[ctrl_moca_file['Subject_ID']==i]  #Clini-Trak data for current subject
             bt_tmp = ctrl_dataframe[ctrl_dataframe['SubjectID']==i] #Braint-Track data for current subject
-            ct_tmp = ct_tmp.drop(columns=['Subject_ID','Sex','Birthdate','Group','Modality','Years_of_education','Onset_Age','Diagnosis_Age'])
+            ct_tmp = ct_tmp.drop(columns=['Subject_ID','Sex','Birthdate','Group','Modality','Years_of_education','Onset_Age','Diagnosis_Age','Handedness','Test_Number','Sympt_Laterality'])
             if len(ct_tmp)>1 and len(ct_tmp)>1: #If List is longer than 1
                 matcher= closest_dates(list(bt_tmp['Date']), list(ct_tmp['MoCA_Dates'])) #Find closest dates for BrainTrak in CliniTrak 
                 ct_tmp = ct_tmp[ct_tmp['MoCA_Dates'].isin(matcher)] #Drop all rows of dates not as close to orginal dates
@@ -509,7 +513,7 @@ if 'Prodromal' in stype:
             print(i)
             ct_tmp = prod_moca_file[prod_moca_file['Subject_ID']==i]  #Clini-Trak data for current subject
             bt_tmp = prod_dataframe[prod_dataframe['SubjectID']==i] #Brain-Trak data for current subject
-            ct_tmp = ct_tmp.drop(columns=['Subject_ID','Sex','Birthdate','Group','Modality','Years_of_education','Onset_Age','Diagnosis_Age'])
+            ct_tmp = ct_tmp.drop(columns=['Subject_ID','Sex','Birthdate','Group','Modality','Years_of_education','Onset_Age','Diagnosis_Age','Handedness','Test_Number','Sympt_Laterality'])
             if len(ct_tmp)>1 and len(ct_tmp)>1: #If List is longer than 1
                 matcher= closest_dates(list(bt_tmp['Date']), list(ct_tmp['MoCA_Dates'])) #Find closest dates for BrainTrak in CliniTrak 
                 ct_tmp = ct_tmp[ct_tmp['MoCA_Dates'].isin(matcher)] #Drop all rows of dates not as close to orginal dates
@@ -526,7 +530,7 @@ if 'Prodromal' in stype:
             print(i)
             ct_tmp = prod_moca_file[prod_moca_file['Subject_ID']==i]  #Clini-Trak data for current subject
             bt_tmp = prod_dataframe[prod_dataframe['SubjectID']==i] #Braint-Track data for current subject
-            ct_tmp = ct_tmp.drop(columns=['Subject_ID','Sex','Birthdate','Group','Modality','Years_of_education','Onset_Age','Diagnosis_Age'])
+            ct_tmp = ct_tmp.drop(columns=['Subject_ID','Sex','Birthdate','Group','Modality','Years_of_education','Onset_Age','Diagnosis_Age','Handedness','Test_Number','Sympt_Laterality'])
             if len(ct_tmp)>1 and len(ct_tmp)>1: #If List is longer than 1
                 matcher= closest_dates(list(bt_tmp['Date']), list(ct_tmp['MoCA_Dates'])) #Find closest dates for BrainTrak in CliniTrak 
                 ct_tmp = ct_tmp[ct_tmp['MoCA_Dates'].isin(matcher)] #Drop all rows of dates not as close to orginal dates
