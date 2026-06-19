@@ -27,9 +27,21 @@ Created on Fri Feb 13 15:54:02 2026
 
 ICE: Inferences from Clinical Evidence + Radiological 
 
+///////////////////////UPDATE v2.0/////////////////////////
+
+- Delta Scores implementation and models 
+
+///////////////////////UPDATE v2.1////////////////////////
+
+- Added ON/OFF Status as predictor variable in PD models 
+
+//////////////////////UPDATE v3.0/////////////////////////
+
+- Added ipsi-contralateral model processing using Clini-Trak v2.4 files (now includes handedness and symptom side)
+
 """
 
-VER = '2.0'
+VER = '3.0'
 
 import pandas as pd
 import numpy as np
@@ -46,7 +58,7 @@ from matplotlib.lines import Line2D
 from statsmodels.stats.outliers_influence import variance_inflation_factor as VIF
 #from statsmodels import graphics
 from scipy import stats as stats
-#from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LinearRegression
 import seaborn as sb
 #import bambi as bmb
 #import arviz as az
@@ -140,7 +152,7 @@ for index, row in ctrl_single_corrected.iterrows():
 
 #----Outlier subject Removal
 
-#pd_long_corrected = pd_long_corrected[pd_long_corrected.Subject_ID != 3771]
+pd_long_corrected = pd_long_corrected[pd_long_corrected.Subject_ID != 3771]
 #ctrl_long_corrected = ctrl_long_corrected[ctrl_long_corrected.Subject_ID != 3112]
 
 #------Single + Longitudinal files merge
@@ -319,13 +331,16 @@ to_remove = ['Subject_ID', 'Test_Number','Sex', 'Birthdate', 'Group','Modality',
              'MoCA_Scores', 'MoCA_Dates', 'Age_at_Test', 'Days_between_Tests','Slope','Onset_Age',
              'Diagnosis_Age', 'Subject','Report_date','Image_orientation', 'Scale_factor', 'Quality_control',
              'Filename','ImageID', 'SubjectID','Group_1','Sex_1','Age','Date','SNR_y','CNR','EFC','CJV', 'SNR_x', 'EoL',
-             'HY_Scores','HY_Dates','Test_Number_1','Age_at_Test_1', 'Days_between_Tests_1','Slope_1']
+             'HY_Scores','HY_Dates','Test_Number_1','Age_at_Test_1', 'Days_between_Tests_1','Slope_1', 'HY_Status',
+             'Handedness','Sympt_Laterality']
 #Left Structures
 structures_left = [x for x in tmp if 'left' in x] #Remove everything but left structures
 structures_left = [x for x in structures_left if 'cm3' not in x] #Remove cm3 values
+structures_left = [x for x in structures_left if 'ventricle' not in x] #Remove Ventricles
 #Right Structures 
 structures_right = [x for x in tmp if 'right' in x] #Remove everything but right structures
 structures_right = [x for x in structures_right if 'cm3' not in x] #Remove cm3 values 
+structures_right = [x for x in structures_right if 'ventricle' not in x] #Remove ventricles 
 #Structures Full (Left+Right)
 structures_LR = structures_right + structures_left
 #Structures Total (Only total volumes)
@@ -338,7 +353,7 @@ structures_total = [x for x in structures_total if x not in to_remove] #Remove o
 
 #Continuous variables to include in scaler
 cont = ['Years_of_education', 'Age_at_Test', 'Age_at_Test_1', 'Days_between_Tests', 'Onset_Age', 'Diagnosis_Age', 'Age',
-        'SNR_y','CNR','EFC','CJV', 'SNR_x','HY_Scores']
+        'SNR_y','CNR','EFC','CJV', 'SNR_x']
 var = structures_total+cont
 
 #Database Scaling 
@@ -1129,8 +1144,7 @@ ax[1].axvline(0.05, color ='red')
 ax[1].set_yticks([])
 plt.tight_layout()
 
-
-#%%----------------------Left+ Right Merge (PD + Ctrl)  Model------------------ <CURRENT
+#%%----------------------Left+ Right Merge (PD + Ctrl )NO Interaction Model------------------ <CURRENT
 merge_results = []
 merge_models_plot_db = pd.DataFrame()
 merge_models_plot_db['Subject_ID']= merge_db_scaled['Subject_ID']
@@ -1138,7 +1152,7 @@ merge_models_plot_db['Age_at_Test']= merge_db_scaled['Age_at_Test']
 
 for i in structures_LR:
     
-    formula = "MoCA_Scores ~ " + i + " + Group  + Age + Sex + HY_Scores + Years_of_education + Group*Age"
+    formula = "MoCA_Scores ~ " + i + " + Group  + Age + Years_of_education"
     print(formula)
     
     lm = smf.mixedlm(formula, merge_db_scaled, groups=merge_db_scaled["Subject_ID"], re_formula='~Age')
@@ -1156,18 +1170,18 @@ for i in structures_LR:
         'Intercept': params['Intercept'],
         'Intercept z': zvals['Intercept'],
         'Intercept pvalue': pvals['Intercept'],
-        'Sex[T.M]':params['Sex[T.M]'],
-        'Sex[T.M] z':zvals['Sex[T.M]'],
-        'Sex[T.M] pvalue':pvals['Sex[T.M]'],
+        # 'Sex[T.M]':params['Sex[T.M]'],
+        # 'Sex[T.M] z':zvals['Sex[T.M]'],
+        # 'Sex[T.M] pvalue':pvals['Sex[T.M]'],
         'Volume':params[i],
         'Volume z':zvals[i],
         'Volume pvalue':pvals[i],
         # 'MoCA_Scores': params['MoCA_Scores'],
         # 'MoCA_Scores z': zvals['MoCA_Scores'],
         # 'MoCA_Scores pvalue': pvals['MoCA_Scores'],
-        'HY_Scores': params['HY_Scores'],
-        'HY_Scores z': zvals['HY_Scores'],
-        'HY_Scores pvalue': pvals['HY_Scores'],
+        # 'HY_Scores': params['HY_Scores'],
+        # 'HY_Scores z': zvals['HY_Scores'],
+        # 'HY_Scores pvalue': pvals['HY_Scores'],
         'Age_at_Test': params['Age'],
         'Age_at_Test z': zvals['Age'],
         'Age_at_Test pvalue': pvals['Age'],
@@ -1176,10 +1190,7 @@ for i in structures_LR:
         'Years_of_education pvalue': pvals['Years_of_education'],
         'Group':params['Group[T.PD]'], 
         'Group z':zvals['Group[T.PD]'], 
-        'Group pvalue':pvals['Group[T.PD]'],
-        'Group*Age':params['Group[T.PD]:Age'], 
-        'Group*Age z':zvals['Group[T.PD]:Age'], 
-        'Group*Age pvalue':pvals['Group[T.PD]:Age'] 
+        'Group pvalue':pvals['Group[T.PD]'] 
     })
     
     if merge_lm.converged:
@@ -1195,8 +1206,8 @@ merge_model_results_df = merge_model_results_df.dropna()
 
 #Pvalue FDR Correction 
 
-pvals_index= ['Sex[T.M] pvalue','Volume pvalue','Age_at_Test pvalue', 'Years_of_education pvalue',
-              'Group pvalue', 'Group*Age pvalue', 'HY_Scores pvalue' ]
+pvals_index= ['Volume pvalue','Age_at_Test pvalue', 'Years_of_education pvalue',
+              'Group pvalue' ]#'Sex[T.M] pvalue',, 'HY_Scores pvalue'
 
 
 for i in pvals_index:
@@ -1249,10 +1260,10 @@ ax[0,1].set_xticks([])
 # ax[1,1].axhline(0.05, color ='red')
 # ax[1,1].set_xticks([])
 
-# ax[1,1].set_title("HY Scores FDR Corrected")
-# ax[1,1].scatter(merge_model_results_df['modelo'], merge_model_results_df['HY_Scores pvalue FDR'], mouseover=True)
-# ax[1,1].axhline(0.05, color ='red')
-# ax[1,1].set_xticks([])
+ax[1,1].set_title("HY Scores FDR Corrected")
+ax[1,1].scatter(merge_model_results_df['modelo'], merge_model_results_df['HY_Scores pvalue FDR'], mouseover=True)
+ax[1,1].axhline(0.05, color ='red')
+ax[1,1].set_xticks([])
 
 
 ax[2,1].set_title("Group*Age FDR Corrected")
@@ -1261,6 +1272,620 @@ ax[2,1].axhline(0.05, color ='red')
 ax[2,1].set_xticks(range(len(ticks)),labels=ticks, rotation=90)
 
 plt.tight_layout()
+
+#%%----------------------Left+ Right Merge (PD + Ctrl ) Interaction Model------------------ <CURRENT
+merge_results_i = []
+merge_models_plot_db_i = pd.DataFrame()
+merge_models_plot_db_i['Subject_ID']= merge_db_scaled['Subject_ID']
+merge_models_plot_db_i['Age_at_Test']= merge_db_scaled['Age_at_Test']
+
+for i in structures_LR:
+    
+    formula = "MoCA_Scores ~ " + i + " + Group  + Age + Years_of_education + Group*Age"
+    print(formula)
+    
+    lm = smf.mixedlm(formula, merge_db_scaled, groups=merge_db_scaled["Subject_ID"], re_formula='~Age')
+    merge_lm = lm.fit()
+    
+    #print('Longitudinal + Single Acq'+i+' Model')
+   
+    pvals = merge_lm.pvalues 
+    params = merge_lm.params
+    zvals = merge_lm.tvalues
+
+    merge_results_i.append({
+        'modelo': i,
+        'formula': merge_lm.model.formula,
+        'Intercept': params['Intercept'],
+        'Intercept z': zvals['Intercept'],
+        'Intercept pvalue': pvals['Intercept'],
+        # 'Sex[T.M]':params['Sex[T.M]'],
+        # 'Sex[T.M] z':zvals['Sex[T.M]'],
+        # 'Sex[T.M] pvalue':pvals['Sex[T.M]'],
+        'Volume':params[i],
+        'Volume z':zvals[i],
+        'Volume pvalue':pvals[i],
+        # 'MoCA_Scores': params['MoCA_Scores'],
+        # 'MoCA_Scores z': zvals['MoCA_Scores'],
+        # 'MoCA_Scores pvalue': pvals['MoCA_Scores'],
+        # 'HY_Scores': params['HY_Scores'],
+        # 'HY_Scores z': zvals['HY_Scores'],
+        # 'HY_Scores pvalue': pvals['HY_Scores'],
+        'Age_at_Test': params['Age'],
+        'Age_at_Test z': zvals['Age'],
+        'Age_at_Test pvalue': pvals['Age'],
+        'Years_of_education': params['Years_of_education'],
+        'Years_of_education z': zvals['Years_of_education'],
+        'Years_of_education pvalue': pvals['Years_of_education'],
+        'Group':params['Group[T.PD]'], 
+        'Group z':zvals['Group[T.PD]'], 
+        'Group pvalue':pvals['Group[T.PD]'],
+        'Group*Age':params['Group[T.PD]:Age'], 
+        'Group*Age z':zvals['Group[T.PD]:Age'], 
+        'Group*Age pvalue':pvals['Group[T.PD]:Age'] 
+    })
+    
+    if merge_lm.converged:
+        merge_models_plot_db_i[i]=merge_lm.fittedvalues
+        
+    
+    print(merge_lm.summary())
+    # plt.figure()
+    # plt.scatter(range(len(merge_lm.fittedvalues)), merge_lm.resid)
+        
+merge_model_results_df_i = pd.DataFrame(merge_results_i)
+merge_model_results_df_i = merge_model_results_df_i.dropna()
+
+#Pvalue FDR Correction 
+
+pvals_index= ['Volume pvalue','Age_at_Test pvalue', 'Years_of_education pvalue',
+              'Group pvalue', 'Group*Age pvalue' ]#'Sex[T.M] pvalue',, 'HY_Scores pvalue'
+
+
+for i in pvals_index:
+    print(i)
+    tmp_pvals = merge_model_results_df_i[i]
+    tmp_pvals_fdr = FDR(tmp_pvals)
+    new_index = i + ' FDR'
+    merge_model_results_df_i[new_index]= tmp_pvals_fdr
+    
+    
+#%%---------------------- Double volume model prediction ---------------------- < CURRENT
+
+formula = "MoCA_Scores ~ Middle_cingulate_gyrus_right_volume_PR + Caudate_right_volume_PR + Group  + Age + Years_of_education "
+print(formula)
+
+lm = smf.mixedlm(formula, merge_db, groups=merge_db["Subject_ID"], re_formula='~Age')
+dv_lm = lm.fit()
+print(dv_lm.summary())
+
+params = dv_lm.params
+
+# merge_db_scaled['Group'] = merge_db_scaled['Group'].map({'PD': 1, 'Control': 0})
+
+# acc_df = pd.DataFrame({
+#     'Subject_ID':merge_db_scaled['Subject_ID'],
+#     'Expected_MoCA_Scores':merge_db_scaled['MoCA_Scores'],
+#     'Predicted_MoCA_Scores':(params['Intercept'] + params['Middle_cingulate_gyrus_right_volume_PR']*merge_db_scaled['Middle_cingulate_gyrus_right_volume_PR']+
+#                              params['Caudate_right_volume_PR']*merge_db_scaled['Caudate_right_volume_PR']+ params['Age']+merge_db_scaled['Age']+ 
+#                              params['Years_of_education']*merge_db_scaled['Years_of_education'] + params['Group[T.PD]']*merge_db_scaled['Group'])})
+
+
+#---------------Scatter plot 
+# plt.scatter(acc_df['Expected_MoCA_Scores'], acc_df['Predicted_MoCA_Scores'])
+# plt.xlabel('Expected MoCA Score')
+# plt.ylabel('Predicted MoCA Score')
+# plt.xlim(18,31)
+# plt.ylim(18,31)
+# plt.plot([10,30],[10,30])
+
+# for i in acc_df['Subject_ID'].unique():
+#     mocas = list(acc_df[acc_df['Subject_ID']==i]['Expected_MoCA_Scores'])
+#     expecs = list(acc_df[acc_df['Subject_ID']==i]['Predicted_MoCA_Scores'])
+    
+#     dm = (mocas[0]+mocas[-1])/2
+#     dm_2 = (expecs[0]+expecs[-1])/2
+#     plt.scatter(dm,dm_2)
+# plt.plot([10,30],[10,30])
+# plt.xlim(18,31)
+# plt.ylim(18,31)
+
+
+
+# Fit your model
+# lm = smf.mixedlm(formula, merge_db_scaled, groups=merge_db_scaled["Subject_ID"], re_formula='~Age')
+# result = lm.fit()
+
+# 1. Fixed Effects variance
+X = dv_lm.model.exog
+beta = dv_lm.fe_params
+y_fixed = X @ beta
+var_f = np.var(y_fixed)
+
+# 2. Total predictions and Random Effects variance
+y_total = dv_lm.predict()
+y_random = y_total - y_fixed
+var_r = np.var(y_random)
+
+# 3. Residual variance
+var_e = dv_lm.scale
+
+# 4. Total variance (decomposition approach)
+total_var = var_f + var_r + var_e
+
+# 5. Calculate R²
+R2_marginal = var_f / total_var
+R2_conditional = (var_f + var_r) / total_var
+
+print(f"Fixed variance: {var_f:.4f}")
+print(f"Random variance (Intercept + Age slope): {var_r:.4f}")
+print(f"Residual variance: {var_e:.4f}")
+print(f"Marginal R² (Fixed only): {R2_marginal:.4f}")
+print(f"Conditional R² (Full model): {R2_conditional:.4f}")
+
+
+
+    
+#%%----------------------Preliminary  Plot-------------------------------------
+
+ticks = list(merge_model_results_df_i['modelo'])
+ticks = [x.replace('_volume_PR','') for x in ticks]
+
+fig, ax = plt.subplots(3,2)
+fig.set_figheight(10)
+fig.set_figwidth(15)
+plt.suptitle('Variable P-values - PD Models by structure L+R (x=Age at Test, Scaled)', fontsize=16)
+ax[0,0].set_title("Sex [M] FDR Corrected")
+ax[0,0].scatter(merge_model_results_df_i['modelo'], merge_model_results_df_i['Sex[T.M] pvalue FDR'], mouseover=True)
+#ax[0,0].scatter(ctrl_model_results_df['modelo'], ctrl_model_results_df['Sex[T.M] pvalue FDR'], mouseover=True)
+ax[0,0].axhline(0.05, color ='red')
+ax[0,0].set_xticks([])
+
+ax[1,0].set_title("Volume FDR Corrected")
+ax[1,0].scatter(merge_model_results_df_i['modelo'], merge_model_results_df_i['Volume pvalue FDR'], mouseover=True)
+ax[1,0].axhline(0.05, color ='red')
+ax[1,0].set_xticks([])
+
+ax[2,0].set_title("Age At Test FDR Corrected")
+ax[2,0].scatter(merge_model_results_df_i['modelo'], merge_model_results_df_i['Age_at_Test pvalue FDR'], mouseover=True)
+ax[2,0].axhline(0.05, color ='red')
+ax[2,0].set_xticks(range(len(ticks)),labels=ticks, rotation=90)
+
+ax[0,1].set_title("Years of Education FDR Corrected")
+ax[0,1].scatter(merge_model_results_df_i['modelo'], merge_model_results_df_i['Years_of_education pvalue FDR'], mouseover=True)
+ax[0,1].axhline(0.05, color ='red')
+ax[0,1].set_xticks([])
+
+# ax[1,1].set_title("Onset Age FDR Corrected")
+# ax[1,1].scatter(merge_model_results_df_i['modelo'], merge_model_results_df_i['Onset_Age pvalue FDR'], mouseover=True)
+# ax[1,1].axhline(0.05, color ='red')
+# ax[1,1].set_xticks([])
+
+# ax[1,1].set_title("Early/Late [T.Late] FDR Corrected")
+# ax[1,1].scatter(merge_model_results_df_i['modelo'], merge_model_results_df_i['EoL pvalue FDR'], mouseover=True)
+# ax[1,1].axhline(0.05, color ='red')
+# ax[1,1].set_xticks([])
+
+ax[1,1].set_title("HY Scores FDR Corrected")
+ax[1,1].scatter(merge_model_results_df_i['modelo'], merge_model_results_df_i['HY_Scores pvalue FDR'], mouseover=True)
+ax[1,1].axhline(0.05, color ='red')
+ax[1,1].set_xticks([])
+
+
+ax[2,1].set_title("Group*Age FDR Corrected")
+ax[2,1].scatter(merge_model_results_df_i['modelo'], merge_model_results_df_i['Group*Age pvalue FDR'], mouseover=True)
+ax[2,1].axhline(0.05, color ='red')
+ax[2,1].set_xticks(range(len(ticks)),labels=ticks, rotation=90)
+
+plt.tight_layout()
+
+#%%----------------------Ipsi-Contra Merge (PD + Ctrl ) Interaction Model------------------ <CURRENT
+
+
+#Apply boolean logic function
+def get_laterality(row):
+    # Choose reference column based on group
+    if row['Group'] == 'PD':
+        ref = row['Sympt_Laterality']
+    else:  # Controls
+        ref = row['Handedness']
+    
+    side = row['Side']
+    
+    # Handle missing values
+    if pd.isna(side) or pd.isna(ref):
+        return np.nan
+    
+    # Case‑insensitive comparison
+    if side.lower() == ref.lower():
+        return 'Ipsilateral'
+    else:
+        return 'Contralateral'
+
+
+#---------------------
+laterality_results_i = []
+
+lat_models_plot_db_i = pd.DataFrame()
+lat_models_plot_db_i['Subject_ID']= merge_db_scaled['Subject_ID']
+lat_models_plot_db_i['Age_at_Test']= merge_db_scaled['Age_at_Test']
+
+for i in structures_LR:
+    
+    if 'right' in i :
+        #Add column with laterality of current structure 
+        merge_db_scaled['Side'] = pd.Series(['Right']*len(merge_db_scaled))
+        merge_db_scaled['Laterality'] = merge_db_scaled.apply(get_laterality, axis=1)
+        #Remap to use ipsilateral as reference value
+        merge_db_scaled['Laterality']=merge_db_scaled['Laterality'].map({'Ipsilateral':0, 'Contralateral':1})
+        
+    
+    elif 'left' in i :
+    
+        #Add column with laterality of current structure 
+        merge_db_scaled['Side'] = pd.Series(['Left']*len(merge_db_scaled))
+        merge_db_scaled['Laterality'] = merge_db_scaled.apply(get_laterality, axis=1)
+        #Remap to use ipsilateral as reference value
+        merge_db_scaled['Laterality']=merge_db_scaled['Laterality'].map({'Ipsilateral':0, 'Contralateral':1})
+    
+    formula = "MoCA_Scores ~ " + i + " + Group  + Age + Years_of_education + Laterality "
+    print(formula)
+    
+    lm = smf.mixedlm(formula, merge_db_scaled, groups=merge_db_scaled["Subject_ID"], re_formula='~Age')
+    lat_lm = lm.fit()
+    
+    #print('Longitudinal + Single Acq'+i+' Model')
+   
+    pvals = lat_lm.pvalues 
+    params = lat_lm.params
+    zvals = lat_lm.tvalues
+
+    laterality_results_i.append({
+        'modelo': i,
+        'formula': merge_lm.model.formula,
+        'Intercept': params['Intercept'],
+        'Intercept z': zvals['Intercept'],
+        'Intercept pvalue': pvals['Intercept'],
+        'Laterality[T.Contralateral]':params['Laterality'],
+        'Laterality[T.Contralateral] z':zvals['Laterality'],
+        'Laterality[T.Contralateral] pvalue':pvals['Laterality'],
+        'Volume':params[i],
+        'Volume z':zvals[i],
+        'Volume pvalue':pvals[i],
+        # 'MoCA_Scores': params['MoCA_Scores'],
+        # 'MoCA_Scores z': zvals['MoCA_Scores'],
+        # 'MoCA_Scores pvalue': pvals['MoCA_Scores'],
+        # 'HY_Scores': params['HY_Scores'],
+        # 'HY_Scores z': zvals['HY_Scores'],
+        # 'HY_Scores pvalue': pvals['HY_Scores'],
+        'Age_at_Test': params['Age'],
+        'Age_at_Test z': zvals['Age'],
+        'Age_at_Test pvalue': pvals['Age'],
+        'Years_of_education': params['Years_of_education'],
+        'Years_of_education z': zvals['Years_of_education'],
+        'Years_of_education pvalue': pvals['Years_of_education'],
+        'Group':params['Group[T.PD]'], 
+        'Group z':zvals['Group[T.PD]'], 
+        'Group pvalue':pvals['Group[T.PD]']
+        # 'Group*Age':params['Group[T.PD]:Age'], 
+        # 'Group*Age z':zvals['Group[T.PD]:Age'], 
+        # 'Group*Age pvalue':pvals['Group[T.PD]:Age'] 
+    })
+    
+    if lat_lm.converged:
+        lat_models_plot_db_i[i]=lat_lm.fittedvalues
+        
+    
+    print(lat_lm.summary())
+    # plt.figure()
+    # plt.scatter(range(len(merge_lm.fittedvalues)), merge_lm.resid)
+        
+lat_model_results_df_i = pd.DataFrame(laterality_results_i)
+lat_model_results_df_i = lat_model_results_df_i.dropna()
+
+#Pvalue FDR Correction 
+
+pvals_index= ['Volume pvalue','Age_at_Test pvalue', 'Years_of_education pvalue',
+              'Group pvalue', 'Laterality[T.Contralateral]' ]#'Sex[T.M] pvalue',, 'HY_Scores pvalue'
+
+
+for i in pvals_index:
+    print(i)
+    tmp_pvals = lat_model_results_df_i[i]
+    tmp_pvals_fdr = FDR(tmp_pvals)
+    new_index = i + ' FDR'
+    lat_model_results_df_i[new_index]= tmp_pvals_fdr
+    
+#%%----------------------Preliminary  Plot-------------------------------------
+
+ticks = list(merge_model_results_df_i['modelo'])
+ticks = [x.replace('_volume_PR','') for x in ticks]
+
+fig, ax = plt.subplots(3,2)
+fig.set_figheight(10)
+fig.set_figwidth(15)
+plt.suptitle('Variable P-values - PD Models by structure L+R (x=Age at Test, Scaled)', fontsize=16)
+ax[0,0].set_title("Sex [M] FDR Corrected")
+ax[0,0].scatter(merge_model_results_df_i['modelo'], merge_model_results_df_i['Sex[T.M] pvalue FDR'], mouseover=True)
+#ax[0,0].scatter(ctrl_model_results_df['modelo'], ctrl_model_results_df['Sex[T.M] pvalue FDR'], mouseover=True)
+ax[0,0].axhline(0.05, color ='red')
+ax[0,0].set_xticks([])
+
+ax[1,0].set_title("Volume FDR Corrected")
+ax[1,0].scatter(merge_model_results_df_i['modelo'], merge_model_results_df_i['Volume pvalue FDR'], mouseover=True)
+ax[1,0].axhline(0.05, color ='red')
+ax[1,0].set_xticks([])
+
+ax[2,0].set_title("Age At Test FDR Corrected")
+ax[2,0].scatter(merge_model_results_df_i['modelo'], merge_model_results_df_i['Age_at_Test pvalue FDR'], mouseover=True)
+ax[2,0].axhline(0.05, color ='red')
+ax[2,0].set_xticks(range(len(ticks)),labels=ticks, rotation=90)
+
+ax[0,1].set_title("Years of Education FDR Corrected")
+ax[0,1].scatter(merge_model_results_df_i['modelo'], merge_model_results_df_i['Years_of_education pvalue FDR'], mouseover=True)
+ax[0,1].axhline(0.05, color ='red')
+ax[0,1].set_xticks([])
+
+# ax[1,1].set_title("Onset Age FDR Corrected")
+# ax[1,1].scatter(merge_model_results_df_i['modelo'], merge_model_results_df_i['Onset_Age pvalue FDR'], mouseover=True)
+# ax[1,1].axhline(0.05, color ='red')
+# ax[1,1].set_xticks([])
+
+# ax[1,1].set_title("Early/Late [T.Late] FDR Corrected")
+# ax[1,1].scatter(merge_model_results_df_i['modelo'], merge_model_results_df_i['EoL pvalue FDR'], mouseover=True)
+# ax[1,1].axhline(0.05, color ='red')
+# ax[1,1].set_xticks([])
+
+ax[1,1].set_title("HY Scores FDR Corrected")
+ax[1,1].scatter(merge_model_results_df_i['modelo'], merge_model_results_df_i['HY_Scores pvalue FDR'], mouseover=True)
+ax[1,1].axhline(0.05, color ='red')
+ax[1,1].set_xticks([])
+
+
+ax[2,1].set_title("Group*Age FDR Corrected")
+ax[2,1].scatter(merge_model_results_df_i['modelo'], merge_model_results_df_i['Group*Age pvalue FDR'], mouseover=True)
+ax[2,1].axhline(0.05, color ='red')
+ax[2,1].set_xticks(range(len(ticks)),labels=ticks, rotation=90)
+
+plt.tight_layout()
+#%%---------------------Sig Structures MoCA - Volume plot ---------------------
+
+plt.figure()
+plt.suptitle('MoCA Score vs Middle_cingulate_gyrus_right % Volume ', fontsize=16)
+plt.subplot(211)
+ax = sb.regplot(pd_db,y='MoCA_Scores', x='Middle_cingulate_gyrus_right_volume_PR', color ='Steelblue', label='Parkinsons', scatter = False)
+ax = sb.regplot(ctrl_db,y='MoCA_Scores', x='Middle_cingulate_gyrus_right_volume_PR', color='green', label='Controls', scatter=False)
+plt.xlabel('% Volume')
+plt.ylabel('MoCA Score')
+#plt.title(full_delta_sig_models['modelo'][0], loc='right', fontsize=10, pad=0)
+plt.legend()
+plt.subplot(212)
+ax = sb.kdeplot(pd_db['Middle_cingulate_gyrus_right_volume_PR'], color = 'steelblue', label='Parkinsons')
+ax = sb.kdeplot(ctrl_db['Middle_cingulate_gyrus_right_volume_PR'], color = 'green', label='Controls')
+plt.legend()
+
+plt.figure()
+plt.suptitle('MoCA Score vs Caudate_right  % Volume ', fontsize=16)
+plt.subplot(211)
+ax = sb.regplot(pd_db,y='MoCA_Scores', x='Caudate_right_volume_PR', color ='Steelblue', label='Parkinsons', scatter = False)
+ax = sb.regplot(ctrl_db,y='MoCA_Scores', x='Caudate_right_volume_PR', color='green', label='Controls', scatter=False)
+plt.xlabel('% Volume')
+plt.ylabel('MoCA Score')
+#plt.title(full_delta_sig_models['modelo'][0], loc='right', fontsize=10, pad=0)
+plt.legend()
+plt.subplot(212)
+ax = sb.kdeplot(pd_db['Caudate_right_volume_PR'], color = 'steelblue', label='Parkinsons')
+ax = sb.kdeplot(ctrl_db['Caudate_right_volume_PR'], color = 'green', label='Controls')
+plt.legend()
+
+
+#%%--------------------3D moca-volume-age plot
+
+x = pd_db[['Age','Middle_cingulate_gyrus_right_volume_PR']].values
+y = pd_db['MoCA_Scores'].values
+
+pd3dmodel = LinearRegression()
+pd3dmodel.fit(x,y)
+
+x_2 = ctrl_db[['Age','Middle_cingulate_gyrus_right_volume_PR']].values
+y_2 = ctrl_db['MoCA_Scores'].values
+
+ctrl3dmodel = LinearRegression()
+ctrl3dmodel.fit(x_2,y_2)
+        
+fig = plt.figure()
+ax = fig.add_subplot(121, projection='3d')
+
+# Scatter plot
+#ax.scatter(x[:, 0], x[:, 1], y, color='steelblue', alpha=0.3)
+
+# Create a grid for the regression plane
+x_range = np.linspace(x[:, 0].min(), x[:, 0].max(), 10)
+y_range = np.linspace(x[:, 1].min(), x[:, 1].max(), 10)
+xx, yy = np.meshgrid(x_range, y_range)
+zz = pd3dmodel.predict(np.c_[xx.ravel(), yy.ravel()]).reshape(xx.shape)
+
+# Plot the regression plane
+ax.plot_surface(xx, yy, zz, color='steelblue', alpha=0.5, label = 'Parkinsons')
+
+# Scatter plot
+#ax.scatter(x_2[:, 0], x_2[:, 1], y_2, color='green', alpha=0.3)
+
+# Create a grid for the regression plane
+x_range = np.linspace(x_2[:, 0].min(), x_2[:, 0].max(), 10)
+y_range = np.linspace(x_2[:, 1].min(), x_2[:, 1].max(), 10)
+xx, yy = np.meshgrid(x_range, y_range)
+zz = ctrl3dmodel.predict(np.c_[xx.ravel(), yy.ravel()]).reshape(xx.shape)
+
+# Plot the regression plane
+ax.plot_surface(xx, yy, zz, color='green', alpha=0.5, label = 'Controls')
+
+ax.set_xlabel('Age')
+ax.set_ylabel(' % Volume')
+ax.set_zlabel('MoCA Score')
+plt.title('Middle cingulate gyrus right')
+plt.legend()
+#plt.show()
+
+#--------------Caudate
+
+x = pd_db[['Age','Caudate_right_volume_PR']].values
+y = pd_db['MoCA_Scores'].values
+
+pd3dmodel = LinearRegression()
+pd3dmodel.fit(x,y)
+
+x_2 = ctrl_db[['Age','Caudate_right_volume_PR']].values
+y_2 = ctrl_db['MoCA_Scores'].values
+
+ctrl3dmodel = LinearRegression()
+ctrl3dmodel.fit(x_2,y_2)
+        
+#fig = plt.figure()
+ax = fig.add_subplot(122, projection='3d')
+
+# Scatter plot
+#ax.scatter(x[:, 0], x[:, 1], y, color='steelblue', alpha=0.3)
+
+# Create a grid for the regression plane
+x_range = np.linspace(x[:, 0].min(), x[:, 0].max(), 10)
+y_range = np.linspace(x[:, 1].min(), x[:, 1].max(), 10)
+xx, yy = np.meshgrid(x_range, y_range)
+zz = pd3dmodel.predict(np.c_[xx.ravel(), yy.ravel()]).reshape(xx.shape)
+
+# Plot the regression plane
+ax.plot_surface(xx, yy, zz, color='steelblue', alpha=0.5, label = 'Parkinsons')
+
+# Scatter plot
+#ax.scatter(x_2[:, 0], x_2[:, 1], y_2, color='green', alpha=0.3)
+
+# Create a grid for the regression plane
+x_range = np.linspace(x_2[:, 0].min(), x_2[:, 0].max(), 10)
+y_range = np.linspace(x_2[:, 1].min(), x_2[:, 1].max(), 10)
+xx, yy = np.meshgrid(x_range, y_range)
+zz = ctrl3dmodel.predict(np.c_[xx.ravel(), yy.ravel()]).reshape(xx.shape)
+
+# Plot the regression plane
+ax.plot_surface(xx, yy, zz, color='green', alpha=0.5, label = 'Controls')
+
+ax.set_xlabel('Age')
+ax.set_ylabel(' % Volume')
+ax.set_zlabel('MoCA Score')
+plt.title('Caudate right')
+plt.legend()
+plt.show()
+
+        
+#%%----------------------Onset age plot
+yso =[]
+
+for i in pd_db['Subject_ID'].unique():
+    tmp = list(pd_db[pd_db['Subject_ID']==i]['YSO'])
+    yso.append(tmp[0])
+    
+plt.title('Años desde el Inicio de síntomas')
+plt.hist(pd_db['YSO'],bins =20, color = 'steelblue', alpha = 0.8)
+plt.ylabel('# De resonancias')
+plt.xlabel('Años desde el inicio de síntomas')
+
+
+#%%----------------------HY Model
+
+pd_db_scaled['HY_Status']= pd_db_scaled['HY_Status'].replace('NoTrtOFF',0)
+pd_db_scaled['HY_Status']= pd_db_scaled['HY_Status'].replace('OFF',0)
+pd_db_scaled['HY_Status']= pd_db_scaled['HY_Status'].replace('ON',1)
+
+lm = smf.mixedlm("HY_Scores ~  Onset_Age + YSO + EoL+ Sex +Years_of_education + Age_at_Test_1 + HY_Status", 
+                 pd_db_scaled, groups=pd_db_scaled["Subject_ID"], re_formula='~Age_at_Test_1')
+pd_lm = lm.fit()
+print('\n\n\nHY PD Model')
+print(pd_lm.summary())
+
+#%%----------------------Left+ Right PD HY Interaction Model------------------ <CURRENT
+pd_hy_results = []
+pd_hy_models_plot_db = pd.DataFrame()
+pd_hy_models_plot_db['Subject_ID']= pd_db_scaled['Subject_ID']
+pd_hy_models_plot_db['Age_at_Test']= pd_db_scaled['Age_at_Test']
+
+for i in structures_LR:
+    
+    formula = "HY_Scores ~ " + i + " YSO + Onset_Age + Sex  + Age + Years_of_education + EoL"
+    print(formula)
+    
+    lm = smf.mixedlm(formula, pd_db_scaled, groups=pd_db_scaled["Subject_ID"], re_formula='~Age')
+    pd_lm = lm.fit()
+    
+    #print('Longitudinal + Single Acq'+i+' Model')
+   
+    pvals = pd_lm.pvalues 
+    params = pd_lm.params
+    zvals = pd_lm.tvalues
+
+    pd_hy_results.append({
+        'modelo': i,
+        'formula': pd_lm.model.formula,
+        'Intercept': params['Intercept'],
+        'Intercept z': zvals['Intercept'],
+        'Intercept pvalue': pvals['Intercept'],
+        'Sex[T.M]':params['Sex[T.M]'],
+        'Sex[T.M] z':zvals['Sex[T.M]'],
+        'Sex[T.M] pvalue':pvals['Sex[T.M]'],
+        'Volume':params[i],
+        'Volume z':zvals[i],
+        'Volume pvalue':pvals[i],
+        # 'MoCA_Scores': params['MoCA_Scores'],
+        # 'MoCA_Scores z': zvals['MoCA_Scores'],
+        # 'MoCA_Scores pvalue': pvals['MoCA_Scores'],
+        'EoL': params['EoL[T.Late]'],
+        'EoL z': zvals['EoL[T.Late]'],
+        'EoL pvalue': pvals['EoL[T.Late]'],
+        'Age_at_Test': params['Age'],
+        'Age_at_Test z': zvals['Age'],
+        'Age_at_Test pvalue': pvals['Age'],
+        'Years_of_education': params['Years_of_education'],
+        'Years_of_education z': zvals['Years_of_education'],
+        'Years_of_education pvalue': pvals['Years_of_education']
+        # 'Group':params['Group[T.PD]'], 
+        # 'Group z':zvals['Group[T.PD]'], 
+        # 'Group pvalue':pvals['Group[T.PD]'],
+        # 'Group*Age':params['Group[T.PD]:Age'], 
+        # 'Group*Age z':zvals['Group[T.PD]:Age'], 
+        # 'Group*Age pvalue':pvals['Group[T.PD]:Age'] 
+    })
+    
+    if pd_lm.converged:
+        pd_hy_models_plot_db[i]=pd_lm.fittedvalues
+        
+    
+    print(pd_lm.summary())
+    # plt.figure()
+    # plt.scatter(range(len(merge_lm.fittedvalues)), merge_lm.resid)
+        
+pd_hy_model_results_df_i = pd.DataFrame(pd_hy_results)
+pd_hy_model_results_df_i = pd_hy_model_results_df_i.dropna()
+
+#Pvalue FDR Correction 
+
+pvals_index= ['Volume pvalue','Age_at_Test pvalue', 'Years_of_education pvalue',
+              'EoL pvalue' ]#'Sex[T.M] pvalue',, 'HY_Scores pvalue'
+
+
+for i in pvals_index:
+    print(i)
+    tmp_pvals = pd_hy_model_results_df_i[i]
+    tmp_pvals_fdr = FDR(tmp_pvals)
+    new_index = i + ' FDR'
+    pd_hy_model_results_df_i[new_index]= tmp_pvals_fdr
+    
+    
+#------------------------
+
+# formula = "MoCA_Scores ~ Middle_cingulate_gyrus_right_volume_PR + Caudate_right_volume_PR + Group  + Age + Years_of_education + Group*Age"
+# print(formula)
+
+# lm = smf.mixedlm(formula, merge_db_scaled, groups=merge_db_scaled["Subject_ID"], re_formula='~Age')
+# merge_lm = lm.fit()
+# print(merge_lm.summary())
 
 #%%----------------------Slopes Plot (Years Since Onset Centered)--------------
 
