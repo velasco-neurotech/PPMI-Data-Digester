@@ -92,7 +92,7 @@ Función linmod_df_filler
     
 Ahora genera el segundo archivo LINMOD_HY_ con los puntajes de Test Horen-Yahr
 
-///////////////////// VER 2.3 Update /////////////////////////////
+//////////////////// VER 2.3 Update /////////////////////////////
 12/6/26
 
 Se modifican funciones para integrar columna de estatus ON OFF Hoehn Yahr en los archivos LINMOD 
@@ -102,9 +102,17 @@ Se modifican funciones para integrar columna de estatus ON OFF Hoehn Yahr en los
 
 Added Left-Right Handedness to Ctrl-PD and Left-Right Symptoms laterality to PD subjects
 
+//////////////////// VER 3 Update ////////////////////////////////
+25/9/26
+
+Corrected wrong comparation method to search subjects in Series.
+Changed from ' i in [Series]  to  i in [Series].values' to perform correct evaluation and avoid exclusion 
+of subjects that did contain data and were flagged as 'NO DATA'
+
+
 """
 
-VER='2.4'
+VER='3'
 
 import easygui as eg
 import os                #Sirve para el Manejo de archivos
@@ -240,18 +248,18 @@ if stype == 'Parkinsons':     #If subject type is Parkinsons
     for i in subjects:
         #print('\n')
         #------Extract Sex from Internal file
-        sex = intfile[(intfile['Subject']==i)]['Sex'].iloc[0]
+        sex = intfile[(intfile['Subject'].values==i)]['Sex'].iloc[0]
         
         #------Extract Birthdate and Handedness from Demographics file 
-        if i in demsfile['PATNO']:
-            birthdate = demsfile[(demsfile['PATNO']==i)]['BIRTHDT'].iloc[0]   
-            hand = demsfile[(demsfile['PATNO']==i)]['HANDED']
+        if i in demsfile['PATNO'].values:
+            birthdate = demsfile[(demsfile['PATNO'].values==i)]['BIRTHDT'].iloc[0]   
+            hand = demsfile[(demsfile['PATNO'].values==i)]['HANDED']
             hand = hand.map(lambda x: 'Right' if x ==1.0 else 'Left' if x==2.0 else 'Ambidex' if x==3.0 else x).iloc[0]
             
         else:
             print('Patient '+str(i)+' not in Demographics file, Birth Year inferred, Handedness Undisclosed')
             dems_exclusions.append(i)
-            birthdate =str(int(datetime.strptime(intfile[(intfile['Subject']==i)]['Acq Date'].iloc[0], '%m/%d/%Y').strftime('%Y'))-int(intfile[(intfile['Subject']==i)]['Age'].iloc[0]))
+            birthdate =str(int(datetime.strptime(intfile[(intfile['Subject'].values==i)]['Acq Date'].iloc[0], '%m/%d/%Y').strftime('%Y'))-int(intfile[(intfile['Subject'].values==i)]['Age'].iloc[0]))
             birthdate = datetime.strptime(birthdate, '%Y').strftime('%m/%Y')
             hand = 'NO DATA'
             with open (sname+' - Clini-Trak Log File.txt', 'a') as savefile:
@@ -261,16 +269,16 @@ if stype == 'Parkinsons':     #If subject type is Parkinsons
         #------Extract Modalities from Internal file
         ni_check=0 #Checks if patient has useful mri sequences
         modality=[]
-        if 'T13D' in intfile[(intfile['Subject']==i)]['Modality'].value_counts().index:
+        if 'T13D' in intfile[(intfile['Subject'].values==i)]['Modality'].value_counts().index:
             modality.append('T13D')
             ni_check=1
-        if 'fMRI' in intfile[(intfile['Subject']==i)]['Modality'].value_counts().index:
+        if 'fMRI' in intfile[(intfile['Subject'].values==i)]['Modality'].value_counts().index:
             modality.append('fMRI')
             ni_check=1
-        if 'DTI' in intfile[(intfile['Subject']==i)]['Modality'].value_counts().index:
+        if 'DTI' in intfile[(intfile['Subject'].values==i)]['Modality'].value_counts().index:
             modality.append('DTI')
             ni_check=1
-        if 'NM' in intfile[(intfile['Subject']==i)]['Modality'].value_counts().index:
+        if 'NM' in intfile[(intfile['Subject'].values==i)]['Modality'].value_counts().index:
             modality.append('NM')
             ni_check=1
         
@@ -281,8 +289,8 @@ if stype == 'Parkinsons':     #If subject type is Parkinsons
                 savefile.write('Patient '+str(i)+' has no useful MRI sequences\n')
 
         #------Extract education years from socioeconomics file
-        if i in socecfile['PATNO']:
-            yoe = socecfile[(socecfile['PATNO']==i)]['EDUCYRS'].iloc[0] 
+        if i in socecfile['PATNO'].values:
+            yoe = socecfile[(socecfile['PATNO'].values==i)]['EDUCYRS'].iloc[0] 
         else:
             print('Patient '+str(i)+' not in Socioeconomics file')
             yoe='NO DATA'
@@ -291,8 +299,8 @@ if stype == 'Parkinsons':     #If subject type is Parkinsons
                 savefile.write('Patient '+str(i)+' not in Socioeconomics file\n')
             
         #-----Extract Hoehn-Yahr Scores from MDS-UPDRS_Part_III
-        if i in updrsfile['PATNO']:
-            hy= updrsfile[(updrsfile['PATNO']==i)][['NHY','INFODT','PDSTATE']]
+        if i in updrsfile['PATNO'].values:
+            hy= updrsfile[(updrsfile['PATNO'].values==i)][['NHY','INFODT','PDSTATE']]
             #There are NaN values in HY status corresponding to before treatment was started (Col PDTRTMNT)
             #so they correspond to a 'OFF State', NaN Values are replaced to 'NoTrtOFF' to indicate this
             hy['PDSTATE'] = hy['PDSTATE'].fillna('NoTrtOFF')
@@ -317,8 +325,8 @@ if stype == 'Parkinsons':     #If subject type is Parkinsons
                 savefile.write('Patient '+str(i)+' not in MDS-UPDRS file\n')
         
         #------Extract MoCA scores from Montreal_Cognitive_Assessment_MoCA File
-        if i in mocafile['PATNO']:
-            moca = mocafile[(mocafile['PATNO']==i)][['MCATOT','INFODT']]
+        if i in mocafile['PATNO'].values:
+            moca = mocafile[(mocafile['PATNO'].values==i)][['MCATOT','INFODT']]
             #Sort by date 
             moca['INFODT']=pd.to_datetime(moca['INFODT'], format='%m/%Y')
             moca.sort_values(by='INFODT', inplace=True)
@@ -335,10 +343,10 @@ if stype == 'Parkinsons':     #If subject type is Parkinsons
                 savefile.write('Patient '+str(i)+' not in MoCA file\n')
             
         #------Extract Age of onset and diagnosis from PD_Diagnosis_History
-        if i in list(pdiagfile['PATNO']):
+        if i in pdiagfile['PATNO'].values:
             
-            onsetdate= list(pdiagfile[list(pdiagfile['PATNO']==i)]['SXDT'])[0]
-            diagdate= list(pdiagfile[list(pdiagfile['PATNO']==i)]['PDDXDT'])[0]
+            onsetdate= list(pdiagfile[list(pdiagfile['PATNO'].values==i)]['SXDT'])[0]
+            diagdate= list(pdiagfile[list(pdiagfile['PATNO'].values==i)]['PDDXDT'])[0]
 
             #Check Values in cell
             if isinstance(onsetdate, str):
@@ -362,7 +370,7 @@ if stype == 'Parkinsons':     #If subject type is Parkinsons
                     savefile.write('Patient '+str(i)+' does not have Onset Date Data\n')
             
             #----Extract Symptoms Laterality at diagnosis
-            side = pdiagfile[list(pdiagfile['PATNO']==i)]['DOMSIDE']
+            side = pdiagfile[list(pdiagfile['PATNO'].values==i)]['DOMSIDE']
             side = side.map(lambda x: 'Left' if x ==1.0 else 'Right' if x==2.0 else 'Symmetric' if x==3.0 else x).iloc[0]
             
         else:
@@ -382,7 +390,7 @@ if stype == 'Parkinsons':     #If subject type is Parkinsons
         pdd_temp_dict={'Subject_ID':int(i), 
                       'Sex':sex, 
                       'Birthdate':birthdate, 
-                      'Group':intfile[(intfile['Subject']==i)]['Group'].iloc[0], 
+                      'Group':intfile[(intfile['Subject'].values==i)]['Group'].iloc[0], 
                       'Modality':modality,  
                       'Years_of_education':yoe, 
                       'Handedness':hand,
@@ -407,18 +415,18 @@ else:
     
     for i in subjects:
         #------Extract Sex from Internal file
-        sex = intfile[(intfile['Subject']==i)]['Sex'].iloc[0]
+        sex = intfile[(intfile['Subject'].values==i)]['Sex'].iloc[0]
         
         #------Extract Birthdate and Handedness from Demographics file 
-        if i in list(demsfile['PATNO']):
-            birthdate = demsfile[(demsfile['PATNO']==i)]['BIRTHDT'].iloc[0]   
-            hand = demsfile[(demsfile['PATNO']==i)]['HANDED']
+        if i in demsfile['PATNO'].values:
+            birthdate = demsfile[(demsfile['PATNO'].values==i)]['BIRTHDT'].iloc[0]   
+            hand = demsfile[(demsfile['PATNO'].values==i)]['HANDED']
             hand = hand.map(lambda x: 'Right' if x ==1.0 else 'Left' if x==2.0 else 'Ambidex' if x==3.0 else x).iloc[0]
             
         else:
             print('Patient '+str(i)+' not in Demographics file, Birth Year inferred, Handedness Undisclosed')
             dems_exclusions.append(i)
-            birthdate =str(int(datetime.strptime(intfile[(intfile['Subject']==i)]['Acq Date'].iloc[0], '%m/%d/%Y').strftime('%Y'))-int(intfile[(intfile['Subject']==i)]['Age'].iloc[0]))
+            birthdate =str(int(datetime.strptime(intfile[(intfile['Subject'].values==i)]['Acq Date'].iloc[0], '%m/%d/%Y').strftime('%Y'))-int(intfile[(intfile['Subject'].values==i)]['Age'].iloc[0]))
             birthdate = datetime.strptime(birthdate, '%Y').strftime('%m/%Y')
             hand = 'NO DATA'
             with open (sname+' - Clini-Trak Log File.txt', 'a') as savefile:
@@ -429,16 +437,16 @@ else:
         #------Extract Modalities from Internal file
         ni_check=0 #Checks if patient has useful mri sequences
         modality=[]
-        if 'T13D' in intfile[(intfile['Subject']==i)]['Modality'].value_counts().index:
+        if 'T13D' in intfile[(intfile['Subject'].values==i)]['Modality'].value_counts().index:
             modality.append('T13D')
             ni_check=1
-        if 'fMRI' in intfile[(intfile['Subject']==i)]['Modality'].value_counts().index:
+        if 'fMRI' in intfile[(intfile['Subject'].values==i)]['Modality'].value_counts().index:
             modality.append('fMRI')
             ni_check=1
-        if 'DTI' in intfile[(intfile['Subject']==i)]['Modality'].value_counts().index:
+        if 'DTI' in intfile[(intfile['Subject'].values==i)]['Modality'].value_counts().index:
             modality.append('DTI')
             ni_check=1
-        if 'NM' in intfile[(intfile['Subject']==i)]['Modality'].value_counts().index:
+        if 'NM' in intfile[(intfile['Subject'].values==i)]['Modality'].value_counts().index:
             modality.append('NM')
             ni_check=1
         
@@ -449,8 +457,8 @@ else:
                 savefile.write('Patient '+str(i)+' has no useful MRI sequences\n')
 
         #------Extract education years from socioeconomics file
-        if i in list(socecfile['PATNO']):
-            yoe = socecfile[(socecfile['PATNO']==i)]['EDUCYRS'].iloc[0] 
+        if i in socecfile['PATNO'].values:
+            yoe = socecfile[(socecfile['PATNO'].values==i)]['EDUCYRS'].iloc[0] 
         else:
             print('Patient '+str(i)+' not in Socioeconomics file')
             yoe='NO DATA'
@@ -459,8 +467,8 @@ else:
                 savefile.write('Patient '+str(i)+' not in Socioeconomics file\n')
             
         #-----Extract Hoehn-Yahr Scores from MDS-UPDRS_Part_III
-        if i in list(updrsfile['PATNO']):
-            hy= updrsfile[(updrsfile['PATNO']==i)][['NHY','INFODT','PDSTATE']]
+        if i in updrsfile['PATNO'].values:
+            hy= updrsfile[(updrsfile['PATNO'].values==i)][['NHY','INFODT','PDSTATE']]
             #There are NaN values in HY status corresponding to before treatment was started (Col PDTRTMNT)
             #so they correspond to a 'OFF State', NaN Values are replaced to 'NoTrtOFF' to indicate this
             hy['PDSTATE'] = hy['PDSTATE'].fillna('NoTrtOFF')
@@ -485,8 +493,8 @@ else:
                 savefile.write('Patient '+str(i)+' not in MDS-UPDRS file\n')
         
         #------Extract MoCA scores from Montreal_Cognitive_Assessment_MoCA File
-        if i in list(mocafile['PATNO']):
-            moca = mocafile[(mocafile['PATNO']==i)][['MCATOT','INFODT']]
+        if i in mocafile['PATNO'].values:
+            moca = mocafile[(mocafile['PATNO'].values==i)][['MCATOT','INFODT']]
             #Sort by date 
             moca['INFODT']=pd.to_datetime(moca['INFODT'], format='%m/%Y')
             moca.sort_values(by='INFODT', inplace=True)
@@ -508,7 +516,7 @@ else:
         pdd_temp_dict={'Subject_ID':int(i), 
                       'Sex':sex, 
                       'Birthdate':birthdate, 
-                      'Group':intfile[(intfile['Subject']==i)]['Group'].iloc[0], 
+                      'Group':intfile[(intfile['Subject'].values==i)]['Group'].iloc[0], 
                       'Modality':modality,  
                       'Years_of_education':yoe, 
                       'Handedness':hand,
