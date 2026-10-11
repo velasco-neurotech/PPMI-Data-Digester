@@ -109,10 +109,15 @@ Corrected wrong comparation method to search subjects in Series.
 Changed from ' i in [Series]  to  i in [Series].values' to perform correct evaluation and avoid exclusion 
 of subjects that did contain data and were flagged as 'NO DATA'
 
+//////////////////// VER 3.1 Update ////////////////////////////
+8/10/26
+
+Added NaN check in Socioeconomics (subjects might be on file but have no data)
+
 
 """
 
-VER='3'
+VER='3.1'
 
 import easygui as eg
 import os                #Sirve para el Manejo de archivos
@@ -290,7 +295,14 @@ if stype == 'Parkinsons':     #If subject type is Parkinsons
 
         #------Extract education years from socioeconomics file
         if i in socecfile['PATNO'].values:
-            yoe = socecfile[(socecfile['PATNO'].values==i)]['EDUCYRS'].iloc[0] 
+            yoe = socecfile[(socecfile['PATNO'].values==i)]['EDUCYRS'].iloc[0] #-------------------ADD NaN Check----------------------
+            if np.isnan(yoe):
+                print('Patient '+str(i)+' contains NaN in Socioeconomics file')
+                yoe='NO DATA'
+                socec_exclusions.append(i)
+                with open (sname+' - Clini-Trak Log File.txt', 'a') as savefile:
+                    savefile.write('Patient '+str(i)+' contains NaN in Socioeconomics file\n')
+            
         else:
             print('Patient '+str(i)+' not in Socioeconomics file')
             yoe='NO DATA'
